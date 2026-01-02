@@ -33,7 +33,7 @@ The system uses a normalized relational structure to ensure data integrity and i
 |users|	Primary identity.|	id (UUID), email|
 |plaid_items|	Represents a bank login.|	id (UUID), access_token, last_cursor, institution_id|
 |cards|	Individual credit accounts.|	id (UUID), plaid_account_id, official_name, mask, reward_slug|
-|transactions|	The financial ledger.|	id (UUID), plaid_transaction_id (Unique), card_id (FK), amount, date, is_analyzable|
+|transactions|	The financial ledger.|	id (UUID), plaid_transaction_id (Unique), card_id (FK), amount, date,plaid_primary_category,plaid_detailed_category, is_analyzable|
 
 ### 4. Category Normalization Mapper
 This layer translates Plaid's PFCv2 Detailed Categories into internal Reward Buckets.
@@ -42,7 +42,7 @@ This layer translates Plaid's PFCv2 Detailed Categories into internal Reward Buc
 The engine shall normalize all spending into the following buckets: DINING, GROCERY, GAS, TRAVEL, ONLINE_SHOPPING, STREAMING, WHOLESALE, DRUGSTORE, UTILITIES, GENERAL.
 
 #### 4.2 Mapping Logic (Reference Table)
-| Plaid Detailed Category (PFCv2) | Internal Bucket |
+| Plaid Category (Detailed or Primary) | Internal Bucket |
 | -------- | ------- |
 |"FOOD_AND_DRINK_RESTAURANTS, FOOD_AND_DRINK_COFFEE_SHOPS, FOOD_AND_DRINK_FAST_FOOD"|DINING|
 |"FOOD_AND_DRINK_GROCERIES, GENERAL_MERCHANDISE_SUPERMARKETS"|GROCERY|
@@ -52,13 +52,14 @@ The engine shall normalize all spending into the following buckets: DINING, GROC
 |"ENTERTAINMENT_TV_AND_MOVIES, ENTERTAINMENT_MUSIC_AND_AUDIO"|STREAMING|
 |GENERAL_MERCHANDISE_WHOLESALE_CLUBS|WHOLESALE|
 |MEDICAL_PHARMACIES_AND_SUPPLEMENTS|DRUGSTORE|
+|* (Any unmapped category)|GENERAL|
 
 ### 5. Functional Requirements (FR)
 #### 5.1 Incremental Data Sync
 - FR 1.1 (Manual Refresh): The system shall provide a "Refresh" button in the Streamlit UI to trigger a manual sync. Automated webhooks are out of scope for the MVP to prioritize local development simplicity.
 - FR 1.2 (Cursor-Based Sync): Every sync request must retrieve the last_cursor from the plaid_items table. Upon a successful /transactions/sync call, the system must update that record with the new cursor provided by Plaid.
 - FR 1.3 (Idempotent Upsert): The system shall use the plaid_transaction_id as a unique natural key. New records must be inserted, and existing records must be updated (UPSERT) to handle data corrections without creating duplicates.
-- FR 4.4 (Three-Stage Filter): During ingestion, the system must apply the following logic:
+- FR 1.4 (Three-Stage Filter): During ingestion, the system must apply the following logic:
   Discard if pending == True.
   Discard if subtype != "credit card".
   Mark is_analyzable = False if the amount is negative (refunds) or the category is LOAN_PAYMENTS or TRANSFER_IN/OUT.
