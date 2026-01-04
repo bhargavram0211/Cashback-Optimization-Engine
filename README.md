@@ -46,8 +46,27 @@ This setup provides a minimal, stable environment where a FastAPI container can 
 |----------|--------|-------------|
 | `/` | GET | Health check - verifies backend is running |
 | `/db-test` | GET | Database connectivity test |
+| `/test-map` | POST | Test category normalization mapper (Sub-Phase 1.3) |
 | `/docs` | GET | Auto-generated API documentation (Swagger UI) |
 | `/redoc` | GET | Alternative API documentation (ReDoc) |
+
+**Example: Test Category Mapper**
+```bash
+curl -X POST http://localhost:8000/test-map \
+  -H "Content-Type: application/json" \
+  -d '{
+    "primary_category": "FOOD_AND_DRINK",
+    "detailed_category": "FOOD_AND_DRINK_RESTAURANT"
+  }'
+
+# Response:
+# {
+#   "primary_category": "FOOD_AND_DRINK",
+#   "detailed_category": "FOOD_AND_DRINK_RESTAURANT",
+#   "internal_bucket": "DINING",
+#   "tier_used": "detailed"
+# }
+```
 
 ### Docker Services
 
@@ -116,13 +135,13 @@ docker-compose down -v
 ## 📝 Development Status
 
 **Completed:**
-- ✅ Sub-Phase 1.1: Infrastructure Shell
+- ✅ Sub-Phase 1.1: Infrastructure Shell (Docker, PostgreSQL, FastAPI)
 - ✅ Sub-Phase 1.2: Data Models (User, PlaidItem, Card, Transaction)
+- ✅ Sub-Phase 1.3: Category Mapper (Plaid PFCv2 → 10 internal reward buckets)
 
 **Next Steps:**
-- Sub-Phase 1.3: TBD
+- Sub-Phase 1.4: TBD
 - Plaid integration
-- Category normalization
 - Optimization engine
 - Streamlit dashboard
 
@@ -130,6 +149,19 @@ docker-compose down -v
 
 - **[LEARNINGS.md](LEARNINGS.md)** - Troubleshooting guide with issues encountered and solutions
 - **[srs.md](srs.md)** - Software Requirements Specification
+- **[scripts/README.md](scripts/README.md)** - Utility scripts documentation
+
+## 🛠️ Utility Scripts
+
+### Category Mapping Audit
+```bash
+python scripts/audit_mappings.py
+```
+Analyzes coverage of the category mapper against all 123 Plaid PFCv2 categories. Shows:
+- Distribution across 10 reward buckets
+- Categories falling back to GENERAL
+- Categories using primary fallbacks
+- Coverage statistics and recommendations
 
 ## 📄 License
 

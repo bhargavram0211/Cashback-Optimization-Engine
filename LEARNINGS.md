@@ -7,6 +7,7 @@ This document captures issues encountered during development, their root causes,
 ## Table of Contents
 - [Sub-Phase 1.1: Infrastructure Shell](#sub-phase-11-infrastructure-shell)
 - [Sub-Phase 1.2: Data Models](#sub-phase-12-data-models)
+- [Sub-Phase 1.3: Category Mapper](#sub-phase-13-category-mapper)
 
 ---
 
@@ -152,6 +153,156 @@ class Transaction(SQLModel, table=True):
 
 ---
 
+## Sub-Phase 1.3: Category Mapper
+
+### Implementation Summary
+
+**Date:** 2026-01-04  
+**Phase:** Category Normalization Logic  
+**Status:** ✅ Completed Successfully
+
+**What Was Built:**
+- `NormalizationMapper` class in `app/logic/mapper.py`
+- 3-tier fallback logic (detailed → primary → GENERAL)
+- Mapping for 10 internal reward buckets
+- Test endpoint `POST /test-map` for validation
+
+**Key Decisions:**
+
+1. **Enum-Based Reward Buckets**
+   - Used Python `Enum` for type safety and autocomplete
+   - All 10 buckets defined: DINING, GROCERY, GAS, TRAVEL, ONLINE_SHOPPING, STREAMING, WHOLESALE, DRUGSTORE, UTILITIES, GENERAL
+
+2. **Singleton Pattern for Mapper**
+   - `get_mapper()` function ensures only one instance
+   - Mapper loads once on startup, cached for all requests
+   - Improves performance by avoiding repeated CSV parsing
+
+3. **Explicit Mapping Dictionaries**
+   - `detailed_to_bucket`: 23 specific category mappings
+   - `primary_to_bucket`: 6 fallback mappings
+   - No CSV parsing needed (hardcoded for MVP speed)
+
+**Mapping Statistics:**
+```
+Detailed mappings: 23
+Primary fallbacks: 6
+Buckets covered:
+  - DINING: 5 categories
+  - GROCERY: 2 categories  
+  - GAS: 1 category
+  - TRAVEL: 5 categories
+  - ONLINE_SHOPPING: 1 category
+  - STREAMING: 2 categories
+  - WHOLESALE: 0 categories (superstores mapped to GROCERY)
+  - DRUGSTORE: 1 category
+  - UTILITIES: 6 categories
+  - GENERAL: 0 explicit (default fallback)
+```
+
+**Test Results:**
+All 15 test cases passed:
+- ✅ Tier 1 (Detailed): DINING, GROCERY, GAS, TRAVEL, STREAMING, ONLINE_SHOPPING, DRUGSTORE, UTILITIES
+- ✅ Tier 2 (Primary): Fallback to DINING, UTILITIES
+- ✅ Tier 3 (General): Unknown categories default correctly
+- ✅ Edge cases: Null inputs, missing categories, rideshares, superstores
+
+**Notable Mapping Decisions:**
+
+| Plaid Category | Internal Bucket | Rationale |
+|----------------|-----------------|-----------|
+| `TRANSPORTATION_TAXIS_AND_RIDE_SHARES` | TRAVEL | Aligns with travel rewards, not gas |
+| `GENERAL_MERCHANDISE_SUPERSTORES` | GROCERY | Better cashback alignment (e.g., Walmart, Target) |
+| `FOOD_AND_DRINK_COFFEE` | DINING | Treated as dining out, not grocery |
+| `RENT_AND_UTILITIES_INTERNET_AND_CABLE` | UTILITIES | Includes streaming services paid as utilities |
+
+**API Endpoint:**
+```bash
+POST /test-map
+Content-Type: application/json
+
+{
+  "primary_category": "FOOD_AND_DRINK",
+  "detailed_category": "FOOD_AND_DRINK_RESTAURANT"
+}
+
+Response:
+{
+  "primary_category": "FOOD_AND_DRINK",
+  "detailed_category": "FOOD_AND_DRINK_RESTAURANT",
+  "internal_bucket": "DINING",
+  "tier_used": "detailed"
+}
+```
+
+**Key Learnings:**
+
+> 💡 **Design Pattern:** The 3-tier fallback provides robustness. Even if Plaid adds new detailed categories, the primary fallback ensures reasonable classification.
+
+> 💡 **Performance:** Singleton pattern with in-memory dictionaries is fast enough for MVP. No need for database lookups or complex caching yet.
+
+> 💡 **Type Safety:** Using Pydantic `BaseModel` for request/response and Python `Enum` for buckets provides excellent validation and autocomplete in IDEs.
+
+**Audit Script Created:**
+Created `scripts/audit_mappings.py` to analyze mapping coverage:
+- Processes all 123 Plaid PFCv2 categories
+- Shows distribution across 10 reward buckets
+- Identifies GENERAL fallbacks and primary fallbacks
+
+**Audit Results:**
+```
+Total categories: 123
+Coverage (non-GENERAL): 32.5%
+  - Tier 1 (Detailed):  23 categories (18.7%)
+  - Tier 2 (Primary):   17 categories (13.8%)
+  - Tier 3 (General):   83 categories (67.5%)
+
+Reward Bucket Distribution:
+  DINING:          6 categories (4.9%)
+  GROCERY:         2 categories (1.6%)
+  GAS:             6 categories (4.9%)
+  TRAVEL:          5 categories (4.1%)
+  ONLINE_SHOPPING: 1 category  (0.8%)
+  STREAMING:       6 categories (4.9%)
+  DRUGSTORE:       7 categories (5.7%)
+  UTILITIES:       7 categories (5.7%)
+  GENERAL:        83 categories (67.5%)
+```
+
+**Coverage Analysis:**
+The 67.5% GENERAL fallback rate is **expected and correct** because:
+- ✅ **INCOME** (12 categories): Not spending, correctly → GENERAL
+- ✅ **TRANSFERS** (12 categories): Not spending, correctly → GENERAL
+- ✅ **LOAN_DISBURSEMENTS/PAYMENTS** (16 categories): Already filtered by SRS, correctly → GENERAL
+- ✅ **BANK_FEES** (8 categories): Don't earn rewards, correctly → GENERAL
+- ✅ **GENERAL_SERVICES** (9 categories): No specific reward category
+- ✅ **GOVERNMENT_AND_NON_PROFIT** (4 categories): No specific reward category
+
+Of the 123 categories, **57 are non-spending categories** that should default to GENERAL.
+
+**Effective Coverage for Spending Categories:**
+- Spending categories: ~66 (123 - 57 non-spending)
+- Mapped specifically: 40 (23 detailed + 17 primary)
+- **Actual coverage: 60.6%** of spending categories
+
+**Potential Improvements Identified:**
+1. **Transportation Primary Fallback**: Parking, tolls, public transit → GAS might not be ideal
+   - Consider: Separate bucket or different mapping
+2. **Medical Primary Fallback**: All medical → DRUGSTORE might confuse users
+   - Dental, eye care, primary care aren't pharmacies
+3. **Rent → UTILITIES**: Rent falling back to utilities is semantically incorrect
+   - Should probably be GENERAL instead
+
+**Future Enhancements:**
+- [ ] Add CSV-based configuration for easier updates
+- [ ] Add merchant name overrides (e.g., "Costco" → WHOLESALE even if categorized as GROCERY)
+- [ ] Add confidence scores for ambiguous mappings
+- [ ] Add analytics endpoint to show mapping distribution across actual transactions
+- [ ] Refine primary fallbacks based on audit results
+- [ ] Create TRANSPORTATION bucket separate from GAS?
+
+---
+
 ## Best Practices Established
 
 ### 1. Relationship Definitions
@@ -287,5 +438,5 @@ open http://localhost:8000/docs
 ---
 
 **Last Updated:** 2026-01-04  
-**Next Update:** After Sub-Phase 1.3 completion
+**Next Update:** After Sub-Phase 1.4 completion
 
