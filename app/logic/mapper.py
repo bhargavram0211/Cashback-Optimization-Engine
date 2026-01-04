@@ -89,12 +89,11 @@ class NormalizationMapper:
         # ========== GROCERY ==========
         grocery_detailed = [
             "FOOD_AND_DRINK_GROCERIES",
+            "GENERAL_MERCHANDISE_SUPERSTORES",  # Walmart, Target, etc.
+            "GENERAL_MERCHANDISE_CONVENIENCE_STORES",  # Often codes as grocery/gas
         ]
         for category in grocery_detailed:
             self.detailed_to_bucket[category] = RewardBucket.GROCERY
-        
-        # Primary fallback for GENERAL_MERCHANDISE_SUPERSTORES
-        self.detailed_to_bucket["GENERAL_MERCHANDISE_SUPERSTORES"] = RewardBucket.GROCERY
         
         # ========== GAS ==========
         gas_detailed = [
@@ -110,6 +109,8 @@ class NormalizationMapper:
             "TRAVEL_RENTAL_CARS",
             "TRAVEL_OTHER_TRAVEL",
             "TRANSPORTATION_TAXIS_AND_RIDE_SHARES",
+            "GENERAL_SERVICES_AUTOMOTIVE",  # Parking, tolls, car services
+            "PERSONAL_CARE_GYMS_AND_FITNESS_CENTERS",  # Wellness/travel cards now cover this
         ]
         for category in travel_detailed:
             self.detailed_to_bucket[category] = RewardBucket.TRAVEL
@@ -117,6 +118,10 @@ class NormalizationMapper:
         # ========== ONLINE_SHOPPING ==========
         online_shopping_detailed = [
             "GENERAL_MERCHANDISE_ONLINE_MARKETPLACES",
+            "GENERAL_MERCHANDISE_CLOTHING_AND_ACCESSORIES",
+            "GENERAL_MERCHANDISE_ELECTRONICS",
+            "GENERAL_MERCHANDISE_DISCOUNT_STORES",
+            "GENERAL_MERCHANDISE_BOOKSTORES_AND_NEWSSTANDS",
         ]
         for category in online_shopping_detailed:
             self.detailed_to_bucket[category] = RewardBucket.ONLINE_SHOPPING
@@ -148,6 +153,8 @@ class NormalizationMapper:
             "RENT_AND_UTILITIES_WATER",
             "RENT_AND_UTILITIES_SEWAGE_AND_WASTE_MANAGEMENT",
             "RENT_AND_UTILITIES_OTHER_UTILITIES",
+            "GENERAL_SERVICES_POSTAGE_AND_SHIPPING",  # Utility-like recurring service
+            "HOME_IMPROVEMENT_SECURITY",  # Home security systems (utilities category)
         ]
         for category in utilities_detailed:
             self.detailed_to_bucket[category] = RewardBucket.UTILITIES
@@ -155,10 +162,10 @@ class NormalizationMapper:
         # ========== PRIMARY CATEGORY FALLBACKS ==========
         # If detailed category doesn't match, try these primary categories
         self.primary_to_bucket["FOOD_AND_DRINK"] = RewardBucket.DINING
-        self.primary_to_bucket["TRANSPORTATION"] = RewardBucket.GAS
+        self.primary_to_bucket["TRANSPORTATION"] = RewardBucket.TRAVEL  # Trains, buses, public transit
         self.primary_to_bucket["TRAVEL"] = RewardBucket.TRAVEL
         self.primary_to_bucket["ENTERTAINMENT"] = RewardBucket.STREAMING
-        self.primary_to_bucket["MEDICAL"] = RewardBucket.DRUGSTORE
+        self.primary_to_bucket["MEDICAL"] = RewardBucket.DRUGSTORE  # Doctor visits, pharmacies
         self.primary_to_bucket["RENT_AND_UTILITIES"] = RewardBucket.UTILITIES
     
     def get_internal_bucket(

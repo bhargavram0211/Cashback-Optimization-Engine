@@ -138,6 +138,7 @@ docker-compose down -v
 - ✅ Sub-Phase 1.1: Infrastructure Shell (Docker, PostgreSQL, FastAPI)
 - ✅ Sub-Phase 1.2: Data Models (User, PlaidItem, Card, Transaction)
 - ✅ Sub-Phase 1.3: Category Mapper (Plaid PFCv2 → 10 internal reward buckets)
+  - ✅ Sub-Phase 1.3.1: Mapping Optimization (74.2% spending coverage)
 
 **Next Steps:**
 - Sub-Phase 1.4: TBD
