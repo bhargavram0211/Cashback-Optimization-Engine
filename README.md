@@ -113,14 +113,23 @@ docker-compose down -v
 - **Containerization**: Docker & Docker Compose
 - **Platform**: Optimized for MacBook M2 (arm64)
 
-## 📝 Next Steps
+## 📝 Development Status
 
-This is Sub-Phase 1.1: Infrastructure Shell. The following phases will add:
-- Database models (User, PlaidItem, Card, Transaction)
+**Completed:**
+- ✅ Sub-Phase 1.1: Infrastructure Shell
+- ✅ Sub-Phase 1.2: Data Models (User, PlaidItem, Card, Transaction)
+
+**Next Steps:**
+- Sub-Phase 1.3: TBD
 - Plaid integration
 - Category normalization
 - Optimization engine
 - Streamlit dashboard
+
+## 📖 Documentation
+
+- **[LEARNINGS.md](LEARNINGS.md)** - Troubleshooting guide with issues encountered and solutions
+- **[srs.md](srs.md)** - Software Requirements Specification
 
 ## 📄 License
 

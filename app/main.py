@@ -1,18 +1,21 @@
 """
-Cashback Optimization Engine - Infrastructure Shell
-Sub-Phase 1.1: Minimal FastAPI app with DB connectivity test
+Cashback Optimization Engine - Main Application
+Sub-Phase 1.2: Added data models and table initialization
 """
 
 import os
 from fastapi import FastAPI, HTTPException
-from sqlmodel import Session, create_engine, text
+from sqlmodel import Session, SQLModel, create_engine, text
 from typing import Dict
+
+# Import models to register them with SQLModel metadata
+from app.models import User, PlaidItem, Card, Transaction
 
 # Initialize FastAPI app
 app = FastAPI(
     title="Cashback Optimization Engine",
     description="Backend API for credit card cashback optimization",
-    version="0.1.0"
+    version="0.2.0"
 )
 
 # Database configuration
@@ -60,10 +63,16 @@ async def db_test() -> Dict[str, str]:
 async def startup_event():
     """
     Runs on application startup.
-    Currently just logs that the app is starting.
+    Creates all database tables if they don't exist.
     """
     print("🚀 Cashback Optimization Engine - Backend Starting...")
     print(f"📊 Database URL: {DATABASE_URL.split('@')[1] if '@' in DATABASE_URL else 'Not Set'}")
+    
+    # Create all tables in the database
+    print("📦 Creating database tables...")
+    SQLModel.metadata.create_all(engine)
+    print("✅ Database tables ready!")
+    print(f"   - Tables: users, plaid_items, cards, transactions")
 
 
 @app.on_event("shutdown")
