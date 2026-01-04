@@ -1,11 +1,11 @@
 """
 Cashback Optimization Engine - Main Application
-Sub-Phase 1.3: Added category normalization mapper
+Sub-Phase 1.4: Added transaction sync engine
 """
 
 import os
 from fastapi import FastAPI, HTTPException
-from sqlmodel import Session, SQLModel, create_engine, text
+from sqlmodel import Session, SQLModel, text
 from typing import Dict, Optional
 from pydantic import BaseModel
 
@@ -15,12 +15,23 @@ from app.models import User, PlaidItem, Card, Transaction
 # Import category mapper
 from app.logic import get_mapper, RewardBucket
 
+# Import core utilities
+from app.core.database import engine, DATABASE_URL
+
+# Import API routers
+from app.api import sync, users, items
+
 # Initialize FastAPI app
 app = FastAPI(
     title="Cashback Optimization Engine",
     description="Backend API for credit card cashback optimization",
-    version="0.3.0"
+    version="0.4.0"
 )
+
+# Include API routers
+app.include_router(users.router)
+app.include_router(items.router)
+app.include_router(sync.router)
 
 
 # ========== Request/Response Models ==========
@@ -56,11 +67,7 @@ class CategoryMapResponse(BaseModel):
             }
         }
 
-# Database configuration
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://cashback_user:cashback_pass_local_dev_only@db:5432/cashback_db")
-
-# Create engine (lazy connection, won't connect until first query)
-engine = create_engine(DATABASE_URL, echo=True)
+# Database engine is imported from app.core.database
 
 
 @app.get("/")

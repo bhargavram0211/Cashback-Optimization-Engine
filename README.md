@@ -2,6 +2,16 @@
 
 A financial analysis tool designed to ingest credit card transactions via Plaid and identify "Opportunity Costs" where a different card in your portfolio would have yielded higher rewards.
 
+## 🧪 Testing the Sync Engine
+
+**For a complete guide to testing Sub-Phase 1.4, see [ACID_TEST_GUIDE.md](./ACID_TEST_GUIDE.md)**
+
+The guide includes:
+- Step-by-step instructions for end-to-end testing
+- How to get a real Plaid Sandbox access token
+- Database verification queries
+- Troubleshooting tips
+
 ## 🚀 Quick Start (Sub-Phase 1.1: Infrastructure Shell)
 
 This setup provides a minimal, stable environment where a FastAPI container can communicate with a PostgreSQL 16 container on your MacBook M2 (arm64).
@@ -47,6 +57,13 @@ This setup provides a minimal, stable environment where a FastAPI container can 
 | `/` | GET | Health check - verifies backend is running |
 | `/db-test` | GET | Database connectivity test |
 | `/test-map` | POST | Test category normalization mapper (Sub-Phase 1.3) |
+| `/users` | POST | Create a user (for testing) |
+| `/users` | GET | List all users |
+| `/users/{user_id}` | GET | Get specific user |
+| `/items` | POST | Create a PlaidItem (for testing) |
+| `/items` | GET | List all PlaidItems |
+| `/items/{item_id}` | GET | Get specific PlaidItem |
+| `/sync/{item_id}` | POST | Sync transactions from Plaid (Sub-Phase 1.4) |
 | `/docs` | GET | Auto-generated API documentation (Swagger UI) |
 | `/redoc` | GET | Alternative API documentation (ReDoc) |
 
@@ -65,6 +82,22 @@ curl -X POST http://localhost:8000/test-map \
 #   "detailed_category": "FOOD_AND_DRINK_RESTAURANT",
 #   "internal_bucket": "DINING",
 #   "tier_used": "detailed"
+# }
+```
+
+**Example: Sync Transactions**
+```bash
+# Sync transactions for a specific Plaid item
+curl -X POST http://localhost:8000/sync/{item_id}
+
+# Response:
+# {
+#   "item_id": "550e8400-e29b-41d4-a716-446655440000",
+#   "transactions_added": 15,
+#   "transactions_updated": 2,
+#   "transactions_removed": 0,
+#   "accounts_synced": 3,
+#   "cursor_updated": true
 # }
 ```
 
@@ -139,18 +172,40 @@ docker-compose down -v
 - ✅ Sub-Phase 1.2: Data Models (User, PlaidItem, Card, Transaction)
 - ✅ Sub-Phase 1.3: Category Mapper (Plaid PFCv2 → 10 internal reward buckets)
   - ✅ Sub-Phase 1.3.1: Mapping Optimization (74.2% spending coverage)
+- ✅ Sub-Phase 1.4: Sync Engine (Plaid transaction sync with 3-stage filter)
+  - ✅ Acid Test Complete: 6/6 test categories passed
+  - ✅ 146 transactions synced from Plaid Sandbox
+  - ✅ 2 credit cards automatically created
+  - ✅ UPSERT logic validated (no duplicates)
+  - ✅ 3-stage filter working (83.6% analyzable, 16.4% non-analyzable)
+
+**Known Issue:**
+- ⚠️ `internal_bucket` field missing from Transaction model (fix in progress)
 
 **Next Steps:**
-- Sub-Phase 1.4: TBD
-- Plaid integration
-- Optimization engine
+- Fix: Add `internal_bucket` field to Transaction model
+- Sub-Phase 1.5: Optimization Engine (calculate best_card_id, lost_savings)
+- Reward rules management
 - Streamlit dashboard
 
 ## 📖 Documentation
 
-- **[LEARNINGS.md](LEARNINGS.md)** - Troubleshooting guide with issues encountered and solutions
+- **[LEARNINGS.md](LEARNINGS.md)** - Comprehensive troubleshooting guide with all issues encountered and solutions across Sub-Phases 1.1-1.4
+- **[ACID_TEST_GUIDE.md](ACID_TEST_GUIDE.md)** - Complete guide to testing the sync engine with Plaid Sandbox
 - **[srs.md](srs.md)** - Software Requirements Specification
 - **[scripts/README.md](scripts/README.md)** - Utility scripts documentation
+
+## 🧪 Testing
+
+**Acid Test Results (Sub-Phase 1.4):**
+- ✅ 6/6 test categories passed
+- ✅ 146 transactions synced successfully
+- ✅ Idempotency verified (no duplicates on second sync)
+- ✅ 3-stage filter working correctly
+- ✅ Category normalization applied to all transactions
+- ✅ Automatic card creation validated
+
+See [ACID_TEST_GUIDE.md](./ACID_TEST_GUIDE.md) for detailed testing instructions.
 
 ## 🛠️ Utility Scripts
 

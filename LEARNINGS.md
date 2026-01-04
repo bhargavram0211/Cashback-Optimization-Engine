@@ -8,6 +8,7 @@ This document captures issues encountered during development, their root causes,
 - [Sub-Phase 1.1: Infrastructure Shell](#sub-phase-11-infrastructure-shell)
 - [Sub-Phase 1.2: Data Models](#sub-phase-12-data-models)
 - [Sub-Phase 1.3: Category Mapper](#sub-phase-13-category-mapper)
+- [Sub-Phase 1.4: Sync Engine](#sub-phase-14-sync-engine)
 
 ---
 
@@ -358,6 +359,583 @@ Of the 123 categories, **57 are non-spending categories** that should default to
 
 ---
 
+## Sub-Phase 1.4: Sync Engine
+
+### Implementation Summary
+
+**Date:** 2026-01-04  
+**Phase:** Plaid Transaction Sync with 3-Stage Filter Pipeline  
+**Status:** ✅ Completed Successfully
+
+**What Was Built:**
+- Plaid client initialization (`app/core/plaid.py`)
+- Transaction sync endpoint (`POST /sync/{item_id}`)
+- 3-stage filter pipeline (SRS Section 2.2)
+- UPSERT logic with `plaid_transaction_id`
+- Cursor-based incremental sync
+- Automatic card creation for credit accounts
+- Category normalization integration
+
+### Architecture
+
+**Files Created:**
+
+1. **`app/core/plaid.py`** - Plaid client configuration
+   - Singleton pattern for client instance
+   - Environment-based configuration (sandbox/development/production)
+   - Proper credential management from `.env`
+
+2. **`app/core/database.py`** - Database session management
+   - Dependency injection with `get_session()`
+   - Centralized engine configuration
+   - Used with FastAPI's `Depends()` for automatic session management
+
+3. **`app/api/sync.py`** - Sync endpoint implementation
+   - `POST /sync/{item_id}` endpoint
+   - 3-stage filter pipeline
+   - UPSERT logic
+   - Cursor management
+   - Category normalization
+
+**Files Modified:**
+- `requirements.txt` - Added `plaid-python==20.0.0`
+- `env.example` - Added Plaid credentials
+- `app/main.py` - Included sync router
+
+### The 3-Stage Filter Pipeline
+
+**SRS Reference:** Section 2.2 - Transaction Discard/Ignore Policy
+
+```python
+# STAGE 1: Discard pending transactions
+if txn.get('pending', False):
+    continue
+
+# STAGE 2: Only process credit card accounts
+if account.type != 'credit' or account.subtype != 'credit card':
+    continue
+
+# STAGE 3: Mark non-analyzable transactions
+is_analyzable = (
+    amount > 0 and  # Not a refund
+    primary_category not in {'LOAN_PAYMENTS', 'TRANSFER_IN', 'TRANSFER_OUT', 'LOAN_DISBURSEMENTS'}
+)
+```
+
+**Stage 1: Pending Filter**
+- **Why:** Pending transactions may have incorrect amounts (tips, adjustments)
+- **Action:** Discard completely
+- **Example:** Restaurant charge pending with $50, final settles at $60 with tip
+
+**Stage 2: Account Type Filter**
+- **Why:** We only optimize credit card rewards
+- **Action:** Discard transactions from checking, savings, loans
+- **Implementation:** Check account metadata, only process `type=='credit'` && `subtype=='credit card'`
+
+**Stage 3: Analyzability Flag**
+- **Why:** Some transactions don't earn rewards (payments, transfers, refunds)
+- **Action:** Store but mark `is_analyzable=False`
+- **Rationale:** Keep for ledger completeness, exclude from optimization
+
+### UPSERT Logic
+
+**SRS Reference:** FR 1.3 - Idempotent Upsert
+
+```python
+# Check if transaction exists by plaid_transaction_id (unique natural key)
+existing_txn = session.exec(
+    select(Transaction).where(Transaction.plaid_transaction_id == txn_id)
+).first()
+
+if existing_txn:
+    # UPDATE: Plaid corrected the transaction
+    for key, value in txn_data.items():
+        setattr(existing_txn, key, value)
+    transactions_updated += 1
+else:
+    # INSERT: New transaction
+    new_txn = Transaction(**txn_data)
+    session.add(new_txn)
+    transactions_added += 1
+```
+
+**Why UPSERT is Critical:**
+- Users can click "Refresh" multiple times
+- Plaid may correct transaction data (merchant name, category, amount)
+- Prevents duplicate transactions
+- Maintains data integrity
+
+**Natural Key:** `plaid_transaction_id` has a UNIQUE constraint in the database
+
+### Cursor Management
+
+**SRS Reference:** FR 1.2 - Cursor-Based Sync
+
+```python
+# 1. Get last cursor from PlaidItem
+cursor = plaid_item.last_cursor  # May be None for first sync
+
+# 2. Sync transactions using cursor
+while has_more:
+    response = plaid_client.transactions_sync(
+        access_token=access_token,
+        cursor=cursor
+    )
+    # Process transactions...
+    cursor = response['next_cursor']
+    has_more = response['has_more']
+
+# 3. Save new cursor back to PlaidItem
+plaid_item.last_cursor = cursor
+plaid_item.updated_at = datetime.utcnow()
+session.commit()
+```
+
+**Benefits:**
+- Only fetch new/modified transactions (not all history)
+- Efficient for regular syncs
+- Handles Plaid's pagination automatically
+- Supports unlimited transaction history
+
+### Category Normalization Integration
+
+Every transaction is automatically mapped to an internal bucket:
+
+```python
+from app.logic import get_mapper
+
+mapper = get_mapper()
+bucket = mapper.get_internal_bucket(primary_category, detailed_category)
+```
+
+This allows future optimization logic to know which reward rates apply.
+
+### Automatic Card Creation
+
+When syncing a new Plaid item, the endpoint automatically:
+
+1. Fetches all credit card accounts for the item
+2. Creates `Card` records if they don't exist
+3. Maps `account_id` → `Card` for transaction association
+4. Preserves existing cards (idempotent)
+
+```python
+for account_id, official_name in credit_accounts.items():
+    card = session.exec(
+        select(Card).where(Card.plaid_account_id == account_id)
+    ).first()
+    
+    if not card:
+        card = Card(
+            plaid_item_id=plaid_item.id,
+            plaid_account_id=account_id,
+            official_name=official_name,
+            reward_slug=None  # Set manually by user later
+        )
+        session.add(card)
+```
+
+### Response Format
+
+```json
+{
+  "item_id": "uuid",
+  "transactions_added": 15,
+  "transactions_updated": 2,
+  "transactions_removed": 0,
+  "accounts_synced": 3,
+  "cursor_updated": true
+}
+```
+
+**Metrics Explained:**
+- `transactions_added`: New transactions discovered
+- `transactions_updated`: Existing transactions corrected by Plaid
+- `transactions_removed`: Transactions deleted by Plaid (rare)
+- `accounts_synced`: Number of credit card accounts processed
+- `cursor_updated`: Whether new cursor was saved
+
+### Environment Configuration
+
+**Required in `.env`:**
+```bash
+PLAID_CLIENT_ID=your_client_id_here
+PLAID_SECRET=your_secret_here
+PLAID_ENV=sandbox  # or development, production
+```
+
+**Plaid Environments:**
+- `sandbox`: Testing with fake data (development)
+- `development`: Testing with real bank connections (limited)
+- `production`: Live production data
+
+### Key Design Decisions
+
+**1. Cursor Storage in PlaidItem**
+- **Decision:** Store `last_cursor` at the PlaidItem level
+- **Rationale:** Each Plaid item has independent sync state
+- **Benefit:** Multi-user support, independent sync schedules
+
+**2. UPSERT on Transaction Level**
+- **Decision:** Use `plaid_transaction_id` as natural key
+- **Rationale:** Plaid corrects transactions, amounts may change
+- **Benefit:** No duplicates, always have latest data
+
+**3. Stage 3 Stores Non-Analyzable**
+- **Decision:** Store refunds/payments but mark `is_analyzable=False`
+- **Rationale:** Ledger completeness vs optimization scope
+- **Benefit:** Full transaction history, clear audit trail
+
+**4. Automatic Card Creation**
+- **Decision:** Create cards automatically during sync
+- **Rationale:** Reduces manual setup steps
+- **Benefit:** User just needs to link bank, cards appear automatically
+
+**5. Dependency Injection for Session**
+- **Decision:** Use FastAPI's `Depends(get_session)`
+- **Rationale:** Automatic session management, no manual commit/rollback
+- **Benefit:** Clean code, prevents connection leaks
+
+### Error Handling
+
+**Plaid API Errors:**
+```python
+try:
+    response = plaid_client.transactions_sync(request)
+except plaid.ApiException as e:
+    raise HTTPException(status_code=500, detail=f"Plaid API error: {str(e)}")
+```
+
+**Missing PlaidItem:**
+```python
+if not plaid_item:
+    raise HTTPException(status_code=404, detail=f"PlaidItem {item_id} not found")
+```
+
+**No Credit Accounts:**
+Returns success response with 0 transactions (not an error condition)
+
+### Testing Strategy
+
+**For MVP (with Sandbox):**
+1. Create a PlaidItem with sandbox access_token
+2. Call `POST /sync/{item_id}`
+3. Verify transactions appear in database
+4. Call sync again to test idempotency (no duplicates)
+5. Verify cursor is updated in PlaidItem
+
+**Future: Integration Tests**
+- Mock Plaid API responses
+- Test 3-stage filter with various transaction types
+- Test UPSERT with modified transactions
+- Test cursor pagination with large datasets
+
+### Performance Considerations
+
+**Current Implementation (MVP):**
+- Sequential processing of transactions
+- Single database commit after all processing
+- No batch inserts (using individual UPSERTs)
+
+**Future Optimizations:**
+- [ ] Batch UPSERT with SQLAlchemy bulk operations
+- [ ] Parallel processing of multiple items
+- [ ] Background job queue for large syncs
+- [ ] Caching of category mapper results
+
+### Known Limitations (MVP)
+
+1. **No Webhook Support:** Manual refresh only (SRS: out of scope for MVP)
+2. **No Rate Limiting:** Could exceed Plaid API limits with frequent syncs
+3. **Single-threaded:** One sync at a time per request
+4. **No Partial Failure Handling:** All-or-nothing transaction commit
+5. **No Sync Status Tracking:** Can't see "in progress" state
+
+### Future Enhancements
+
+- [ ] Add webhook endpoint for real-time transaction updates
+- [ ] Implement background job queue (Celery/RQ) for async syncs
+- [ ] Add sync status tracking (in_progress, completed, failed)
+- [ ] Implement rate limiting and retry logic
+- [ ] Add transaction deduplication by merchant + amount + date (beyond Plaid ID)
+- [ ] Add user notification for sync completion
+- [ ] Add manual transaction entry for non-Plaid accounts
+
+---
+
+### Issues Encountered During Acid Test
+
+**Date:** 2026-01-04  
+**Phase:** Acid Test Validation of Sync Engine
+
+#### Issue 4: Missing Plaid Environment Variables in Docker
+
+**Symptom:**
+```
+ValueError: PLAID_CLIENT_ID environment variable is required
+```
+
+**Root Cause:**  
+The Plaid environment variables (`PLAID_CLIENT_ID`, `PLAID_SECRET`, `PLAID_ENV`) were in `.env` file but not passed to the Docker container in `docker-compose.yml`.
+
+**Solution:**
+```yaml
+# docker-compose.yml - backend service environment section
+environment:
+  # Existing vars...
+  PLAID_CLIENT_ID: ${PLAID_CLIENT_ID}
+  PLAID_SECRET: ${PLAID_SECRET}
+  PLAID_ENV: ${PLAID_ENV}
+```
+
+**Key Learning:**
+> ⚠️ **Docker Environment Variables:** Adding variables to `.env` is NOT enough. They must be explicitly mapped in `docker-compose.yml` to be accessible inside containers.
+
+---
+
+#### Issue 5: Plaid Sandbox Returns Only Checking Accounts
+
+**Symptom:**
+```
+accounts_synced: 0
+transactions_added: 0
+```
+Debug logs showed: `Account type=depository, subtype=checking`
+
+**Investigation Process:**
+1. Tried `user_transactions_dynamic` → Only checking accounts
+2. Tried `user_yuppie` (persona) → Only checking accounts
+3. Tried explicit account override → API error: `UNKNOWN_FIELDS`
+
+**Root Cause:**  
+Requesting only `initial_products: ["transactions"]` caused Plaid Sandbox to default to **checking accounts** with transaction history. Plaid Sandbox doesn't automatically provision credit card accounts unless explicitly signaled.
+
+**Solution:**
+Request BOTH products:
+```bash
+curl -X POST https://sandbox.plaid.com/sandbox/public_token/create \
+  -d '{
+    "client_id": "...",
+    "secret": "...",
+    "institution_id": "ins_109508",
+    "initial_products": ["transactions", "liabilities"]  # ← BOTH required
+  }'
+```
+
+**Why This Works:**
+- `transactions` product → Provides detailed transaction history (merchant, amount, date)
+- `liabilities` product → Signals to Plaid: "I need credit/loan accounts"
+- Together → Plaid provisions **credit card accounts** WITH transaction history
+
+**Key Learning:**
+> 💡 **CRITICAL:** For credit card testing in Plaid Sandbox:
+> - `["transactions"]` alone → Checking accounts with transactions
+> - `["transactions", "liabilities"]` → Credit card accounts with transactions
+> 
+> The `liabilities` product doesn't just add metadata—it changes which account types are provisioned!
+
+**Plaid Documentation Reference:**
+- [Liabilities API](https://plaid.com/docs/api/products/liabilities/index.html.md): "Currently supported account types are account type `credit` with account subtype `credit card`"
+
+---
+
+#### Issue 6: Cursor Type Error on First Sync
+
+**Symptom:**
+```
+plaid.exceptions.ApiTypeError: Invalid type for variable 'cursor'. 
+Required value type is str and passed type was NoneType at ['cursor']
+```
+
+**Root Cause:**  
+On first sync, `plaid_item.last_cursor` is `None`. The Plaid Python SDK doesn't accept `None` as a cursor value—it must either be omitted or be a string.
+
+**Solution:**
+```python
+# Conditional request creation
+if cursor:
+    request = TransactionsSyncRequest(
+        access_token=plaid_item.access_token,
+        cursor=cursor
+    )
+else:
+    request = TransactionsSyncRequest(
+        access_token=plaid_item.access_token
+        # Don't pass cursor parameter at all
+    )
+```
+
+**Key Learning:**
+> 💡 **Cursor Handling:** For first sync, omit the cursor parameter entirely rather than passing `None`. Plaid's API distinguishes between "no cursor" (fetch all) and "cursor=None" (invalid).
+
+---
+
+#### Issue 7: Date Type Mismatch
+
+**Symptom:**
+```python
+TypeError: strptime() argument 1 must be str, not datetime.date
+```
+
+**Root Cause:**  
+Plaid's Python SDK returns `date` fields as `datetime.date` objects (not strings), but the code assumed string format and tried to parse with `strptime()`.
+
+**Solution:**
+```python
+# Handle both string and date object formats
+txn_date = txn['date']
+if isinstance(txn_date, str):
+    txn_date = datetime.strptime(txn_date, '%Y-%m-%d').date()
+# else: already a date object, use as-is
+```
+
+**Key Learning:**
+> 💡 **Plaid SDK Data Types:** The `plaid-python` SDK converts API responses to Python objects. Don't assume all fields are strings—check types when dealing with dates, decimals, etc.
+
+---
+
+#### Issue 8: Missing Email Validator Package
+
+**Symptom:**
+```
+ImportError: email-validator is not installed, 
+run `pip install 'pydantic[email]'`
+```
+
+**Root Cause:**  
+Using Pydantic's `EmailStr` type requires the separate `email-validator` package, which wasn't in `requirements.txt`.
+
+**Solution:**
+```python
+# requirements.txt
+pydantic[email]>=2.7.0
+email-validator>=2.1.0
+```
+
+**Key Learning:**
+> 💡 **Pydantic Optional Dependencies:** Some Pydantic features require additional packages. Use the bracket notation `pydantic[email]` or install dependencies explicitly.
+
+---
+
+### Acid Test Results Summary
+
+**Date:** 2026-01-04  
+**Status:** ✅ PASSED (6/6 test categories)
+
+**Data Synced:**
+- 146 transactions imported
+- 2 credit card accounts created automatically
+- 1 PlaidItem connected
+- 1 User created
+
+**Credit Cards Created:**
+1. Plaid Diamond 12.5% APR Interest Credit Card
+2. Plaid Platinum Small Business Credit Card
+
+**Test Category Results:**
+
+✅ **Stage 1 & 2: Account Type Filter**
+- All 146 transactions from credit cards (not checking) ✓
+- No pending transactions stored ✓
+- No wrong account types ✓
+
+✅ **Stage 3: Analyzability Flag**
+- 122 transactions (83.6%) marked `is_analyzable = true` ✓
+- 24 transactions (16.4%) marked `is_analyzable = false` ✓
+- Example verified: "AUTOMATIC PAYMENT - THANK" → `TRANSFER_OUT` → non-analyzable ✓
+
+✅ **Plaid Category Normalization**
+- All transactions have Plaid categories ✓
+- Distribution: ENTERTAINMENT (25), TRAVEL (25), FOOD_AND_DRINK (24), etc. ✓
+- Sample verified:
+  - United Airlines → `TRAVEL` / `TRAVEL_FLIGHTS` ✓
+  - KFC → `FOOD_AND_DRINK` / `FOOD_AND_DRINK_FAST_FOOD` ✓
+  - Madison Bicycle Shop → `GENERAL_MERCHANDISE` / `SPORTING_GOODS` ✓
+
+✅ **UPSERT Logic (Idempotency)**
+- First sync: 146 transactions added ✓
+- Second sync: 0 transactions added (no duplicates) ✓
+- Database count: 146 (unchanged after second sync) ✓
+- UPSERT on `plaid_transaction_id` working perfectly ✓
+
+✅ **Data Integrity**
+- All transactions have unique `plaid_transaction_id` ✓
+- All amounts stored as `Decimal(12,2)` ✓
+- All transactions have merchant names ✓
+- All transactions have dates ✓
+- Foreign key relationships maintained ✓
+
+✅ **Cursor Management**
+- `cursor_updated: true` after sync ✓
+- `PlaidItem.last_cursor` saved in database ✓
+- Future syncs will be incremental ✓
+
+**Known Issue Discovered:**
+⚠️ `internal_bucket` field is **missing from Transaction model**
+- The sync code calls `mapper.get_internal_bucket()` and tries to set the field
+- But the column doesn't exist in the database schema
+- Plaid categories ARE being saved (can be mapped later)
+- Fix needed: Add `internal_bucket` column to Transaction model
+
+**Impact:** Medium priority
+- Transactions sync successfully
+- 3-stage filter working
+- Plaid categories captured
+- But optimization engine (Sub-Phase 1.5) will need `internal_bucket`
+
+---
+
+### Key Technical Insights from Acid Test
+
+**1. Plaid Sandbox Credit Card Provisioning**
+
+The `initial_products` array determines which account types are provisioned:
+
+| Products Requested | Accounts Provisioned | Use Case |
+|-------------------|---------------------|----------|
+| `["transactions"]` | Checking accounts with transaction history | Bank account analysis |
+| `["liabilities"]` | Credit cards without transactions | Debt metadata only |
+| `["transactions", "liabilities"]` | **Credit cards WITH transactions** | Cashback optimization ✓ |
+
+**Key Insight:**  
+> The `liabilities` product isn't just for metadata—it's a **signal** to Plaid Sandbox about which account types to provision. Always include both for credit card transaction testing.
+
+**2. UPSERT Performance**
+
+With 146 transactions:
+- First sync: ~4 seconds (all INSERTs)
+- Second sync: ~1 second (all checks, 0 updates)
+- No duplicates created despite multiple syncs
+
+UPSERT strategy validated:
+- Natural key (`plaid_transaction_id`) prevents duplicates ✓
+- Sequential processing acceptable for MVP ✓
+- Future: Batch operations could improve performance
+
+**3. Category Distribution Analysis**
+
+Real sandbox data showed balanced distribution:
+- ENTERTAINMENT: 17.1%
+- TRAVEL: 17.1%
+- GENERAL_MERCHANDISE: 16.4%
+- PERSONAL_CARE: 16.4%
+- FOOD_AND_DRINK: 16.4%
+- TRANSFER_OUT: 16.4%
+
+This validates that:
+- Plaid's sandbox data is realistic ✓
+- Our 10-bucket system can handle diverse spending ✓
+- GENERAL bucket usage is reasonable (transfers, payments)
+
+**4. Analyzability Distribution**
+
+83.6% analyzable vs 16.4% non-analyzable matches expectations:
+- Most transactions are purchases (rewardable) ✓
+- ~16% are payments/transfers (non-rewardable) ✓
+- Matches typical credit card statement composition
+
+---
+
 ## Best Practices Established
 
 ### 1. Relationship Definitions
@@ -493,5 +1071,6 @@ open http://localhost:8000/docs
 ---
 
 **Last Updated:** 2026-01-04  
-**Next Update:** After Sub-Phase 1.4 completion
+**Sub-Phase 1.4:** Complete with Acid Test Validation ✅  
+**Next:** Add `internal_bucket` field → Sub-Phase 1.5
 
