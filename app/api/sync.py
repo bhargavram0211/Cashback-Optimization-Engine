@@ -276,6 +276,7 @@ async def sync_transactions(
                     "date": txn_date,
                     "plaid_primary_category": primary_category,
                     "plaid_detailed_category": detailed_category,
+                    "internal_bucket": internal_bucket.value,  # NEW: Add mapped reward bucket
                     "merchant_name": txn.get('merchant_name') or txn.get('name'),
                     "is_analyzable": is_analyzable,
                     "updated_at": datetime.utcnow()

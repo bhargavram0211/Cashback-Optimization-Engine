@@ -95,6 +95,13 @@ class Transaction(SQLModel, table=True):
     plaid_primary_category: Optional[str] = Field(default=None, sa_column=Column(String(255)))
     plaid_detailed_category: Optional[str] = Field(default=None, sa_column=Column(String(255)))
     
+    # Internal reward bucket mapping (from NormalizationMapper)
+    internal_bucket: Optional[str] = Field(
+        default=None,
+        sa_column=Column(String(50), index=True),
+        description="Mapped reward bucket (DINING, GROCERY, GAS, etc.) from mapper"
+    )
+    
     # Merchant info
     merchant_name: Optional[str] = Field(default=None, sa_column=Column(String(500)))
     

@@ -936,6 +936,103 @@ This validates that:
 
 ---
 
+#### Issue 9: Missing internal_bucket Field in Transaction Model
+
+**Date:** 2026-01-07  
+**Phase:** Post-Acid Test Schema Fix  
+**Symptom:**
+```
+During acid test, discovered that internal_bucket values were calculated but not saved to database
+```
+
+**Root Cause:**  
+The sync logic in `app/api/sync.py` was correctly calculating `internal_bucket` from the `NormalizationMapper`, but:
+1. The `Transaction` model in `app/models/models.py` had no `internal_bucket` field
+2. The `txn_data` dictionary was not including `internal_bucket`
+3. Result: Category mapping worked perfectly, but values were never persisted
+
+**Error Details:**
+- Mapper calculated buckets correctly ✓
+- 3-stage filter working ✓
+- Transactions saved to database ✓
+- But `internal_bucket` was silently ignored (column didn't exist)
+
+**Solution (2-Part Fix):**
+
+**1. Add Field to Transaction Model:**
+```python
+# app/models/models.py - After Plaid categories, before merchant_name
+
+# Internal reward bucket mapping (from NormalizationMapper)
+internal_bucket: Optional[str] = Field(
+    default=None,
+    sa_column=Column(String(50), index=True),
+    description="Mapped reward bucket (DINING, GROCERY, GAS, etc.) from mapper"
+)
+```
+
+**2. Add to txn_data Dictionary:**
+```python
+# app/api/sync.py - In the transaction processing loop
+
+txn_data = {
+    "card_id": card.id,
+    "plaid_transaction_id": txn['transaction_id'],
+    "amount": amount,
+    "date": txn_date,
+    "plaid_primary_category": primary_category,
+    "plaid_detailed_category": detailed_category,
+    "internal_bucket": internal_bucket.value,  # NEW: Add mapped bucket
+    "merchant_name": txn.get('merchant_name') or txn.get('name'),
+    "is_analyzable": is_analyzable,
+    "updated_at": datetime.utcnow()
+}
+```
+
+**3. Rebuild Database:**
+```bash
+docker-compose down -v  # Remove old volumes
+docker-compose up -d --build  # Recreate schema with new field
+```
+
+**Verification:**
+```bash
+# Check schema
+docker-compose exec -T db psql -U cashback_user -d cashback_db -c "\d transactions"
+
+# Output shows:
+# internal_bucket | character varying(50) | | | 
+# Index: ix_transactions_internal_bucket btree (internal_bucket)
+```
+
+**Key Learning:**
+> ⚠️ **Schema-First Development:** When adding new data to be persisted:
+> 1. **FIRST:** Add field to SQLModel model
+> 2. **THEN:** Rebuild database (or create migration)
+> 3. **FINALLY:** Update logic to populate the field
+> 
+> Doing it in reverse order causes silent data loss!
+
+**Why This Is Critical:**
+- Without `internal_bucket`, the optimization engine (Sub-Phase 1.5) cannot function
+- The field is indexed for fast queries: `WHERE internal_bucket = 'DINING'`
+- Enables analytics: spending by category, bucket-level insights
+- Required for reward calculation: match bucket to card's reward rules
+
+**Impact:**
+- **Before Fix:** Plaid categories saved, but not normalized buckets
+- **After Fix:** Every transaction has its normalized reward bucket
+- **Performance:** Index on `internal_bucket` enables fast aggregation queries
+
+**Best Practices Established:**
+1. Always add database fields BEFORE using them in logic
+2. Use `docker-compose down -v` when schema changes
+3. Verify schema after rebuild: `\d table_name`
+4. Check SQLAlchemy logs for index creation
+5. Test endpoints immediately after schema changes
+
+---
+
 ## Best Practices Established
 
 ### 1. Relationship Definitions
@@ -1070,7 +1167,8 @@ open http://localhost:8000/docs
 
 ---
 
-**Last Updated:** 2026-01-04  
+**Last Updated:** 2026-01-07  
 **Sub-Phase 1.4:** Complete with Acid Test Validation ✅  
-**Next:** Add `internal_bucket` field → Sub-Phase 1.5
+**Schema Fix:** `internal_bucket` field added ✅  
+**Next:** Re-run Acid Test to verify persistence → Sub-Phase 1.5
 
