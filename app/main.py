@@ -4,22 +4,25 @@ Sub-Phase 1.4: Added transaction sync engine
 """
 
 import os
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from sqlmodel import Session, SQLModel, text
 from typing import Dict, Optional
 from pydantic import BaseModel
 
 # Import models to register them with SQLModel metadata
-from app.models import User, PlaidItem, Card, Transaction
+from app.models import User, PlaidItem, Card, RewardRule, Transaction
 
 # Import category mapper
 from app.logic import get_mapper, RewardBucket
 
 # Import core utilities
-from app.core.database import engine, DATABASE_URL
+from app.core.database import engine, DATABASE_URL, get_session
 
 # Import API routers
 from app.api import sync, users, items
+
+# Import services
+from app.services import optimize_all_transactions
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -161,6 +164,55 @@ async def test_category_mapping(request: CategoryMapRequest) -> CategoryMapRespo
     )
 
 
+@app.post("/optimize", tags=["Optimization"])
+async def optimize(session: Session = Depends(get_session)) -> Dict:
+    """
+    Run the cashback optimization engine on all transactions.
+    
+    Phase 2.2: The Optimization Engine
+    
+    Process:
+    1. Loops through every transaction in the database
+    2. For each transaction, checks the internal_bucket (e.g., DINING)
+    3. Scans all cards to find which has the highest multiplier for that bucket
+    4. Calculates:
+       - actual_cashback: What was earned with the card used
+       - best_possible_cashback: What could have been earned with optimal card
+       - lost_savings: Opportunity cost (best - actual)
+    5. Updates each transaction with best_card_id and lost_savings
+    
+    Returns:
+        Dict with optimization summary:
+        - total_transactions: Number of transactions processed
+        - optimized: Number of transactions optimized
+        - skipped: Number of transactions skipped (non-analyzable, no bucket)
+        - total_actual_cashback: Total cashback earned
+        - total_potential_cashback: Total cashback possible
+        - total_lost_savings: Total opportunity cost
+        - average_lost_per_transaction: Average opportunity cost per transaction
+    
+    Example Response:
+    {
+        "status": "success",
+        "total_transactions": 146,
+        "optimized": 122,
+        "skipped": 24,
+        "total_actual_cashback": 146.00,
+        "total_potential_cashback": 438.00,
+        "total_lost_savings": 292.00,
+        "average_lost_per_transaction": 2.39
+    }
+    """
+    try:
+        result = optimize_all_transactions(session)
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Optimization failed: {str(e)}"
+        )
+
+
 @app.on_event("startup")
 async def startup_event():
     """
@@ -174,7 +226,7 @@ async def startup_event():
     print("📦 Creating database tables...")
     SQLModel.metadata.create_all(engine)
     print("✅ Database tables ready!")
-    print(f"   - Tables: users, plaid_items, cards, transactions")
+    print(f"   - Tables: users, plaid_items, cards, reward_rules, transactions")
     
     # Initialize category mapper
     print("🗺️  Initializing category mapper...")
