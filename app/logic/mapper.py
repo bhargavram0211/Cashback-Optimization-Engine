@@ -76,6 +76,7 @@ class NormalizationMapper:
         """
         
         # ========== DINING ==========
+        # All restaurant, coffee shop, bar, and food service purchases
         dining_detailed = [
             "FOOD_AND_DRINK_RESTAURANT",
             "FOOD_AND_DRINK_COFFEE",
@@ -87,15 +88,17 @@ class NormalizationMapper:
             self.detailed_to_bucket[category] = RewardBucket.DINING
         
         # ========== GROCERY ==========
+        # Supermarkets, grocery stores, and food purchases for home consumption
         grocery_detailed = [
             "FOOD_AND_DRINK_GROCERIES",
-            "GENERAL_MERCHANDISE_SUPERSTORES",  # Walmart, Target, etc.
-            "GENERAL_MERCHANDISE_CONVENIENCE_STORES",  # Often codes as grocery/gas
+            "GENERAL_MERCHANDISE_SUPERSTORES",  # Walmart, Target grocery sections
+            "GENERAL_MERCHANDISE_CONVENIENCE_STORES",  # Often codes as grocery
         ]
         for category in grocery_detailed:
             self.detailed_to_bucket[category] = RewardBucket.GROCERY
         
         # ========== GAS ==========
+        # Gas stations and fuel purchases
         gas_detailed = [
             "TRANSPORTATION_GAS",
         ]
@@ -103,58 +106,76 @@ class NormalizationMapper:
             self.detailed_to_bucket[category] = RewardBucket.GAS
         
         # ========== TRAVEL ==========
+        # Flights, hotels, car rentals, rideshares, parking, tolls, transit
         travel_detailed = [
+            # Actual travel
             "TRAVEL_FLIGHTS",
             "TRAVEL_LODGING",
             "TRAVEL_RENTAL_CARS",
             "TRAVEL_OTHER_TRAVEL",
-            "TRANSPORTATION_TAXIS_AND_RIDE_SHARES",
-            "GENERAL_SERVICES_AUTOMOTIVE",  # Parking, tolls, car services
-            "PERSONAL_CARE_GYMS_AND_FITNESS_CENTERS",  # Wellness/travel cards now cover this
+            # Transportation that's often part of travel
+            "TRANSPORTATION_TAXIS_AND_RIDE_SHARES",  # Uber, Lyft
+            "TRANSPORTATION_PUBLIC_TRANSIT",  # Trains, buses, metro
+            "TRANSPORTATION_PARKING",  # Airport parking, parking garages
+            "TRANSPORTATION_TOLLS",  # Highway tolls
+            "TRANSPORTATION_BIKES_AND_SCOOTERS",  # Bike/scooter rentals
+            # Related travel services
+            "GENERAL_SERVICES_AUTOMOTIVE",  # Car washes, parking services
         ]
         for category in travel_detailed:
             self.detailed_to_bucket[category] = RewardBucket.TRAVEL
         
         # ========== ONLINE_SHOPPING ==========
+        # Online retailers, clothing, electronics, books
         online_shopping_detailed = [
-            "GENERAL_MERCHANDISE_ONLINE_MARKETPLACES",
-            "GENERAL_MERCHANDISE_CLOTHING_AND_ACCESSORIES",
-            "GENERAL_MERCHANDISE_ELECTRONICS",
-            "GENERAL_MERCHANDISE_DISCOUNT_STORES",
-            "GENERAL_MERCHANDISE_BOOKSTORES_AND_NEWSSTANDS",
+            "GENERAL_MERCHANDISE_ONLINE_MARKETPLACES",  # Amazon, eBay
+            "GENERAL_MERCHANDISE_CLOTHING_AND_ACCESSORIES",  # Fashion retailers
+            "GENERAL_MERCHANDISE_ELECTRONICS",  # Best Buy, electronics stores
+            "GENERAL_MERCHANDISE_DISCOUNT_STORES",  # TJ Maxx, Ross
+            "GENERAL_MERCHANDISE_BOOKSTORES_AND_NEWSSTANDS",  # Barnes & Noble
+            "GENERAL_MERCHANDISE_DEPARTMENT_STORES",  # Macy's, Nordstrom
+            "GENERAL_MERCHANDISE_GIFTS_AND_NOVELTIES",  # Gift shops
+            "GENERAL_MERCHANDISE_OFFICE_SUPPLIES",  # Staples, Office Depot
+            "GENERAL_MERCHANDISE_PET_SUPPLIES",  # Petco, pet stores
+            "GENERAL_MERCHANDISE_SPORTING_GOODS",  # Dick's Sporting Goods
         ]
         for category in online_shopping_detailed:
             self.detailed_to_bucket[category] = RewardBucket.ONLINE_SHOPPING
         
         # ========== STREAMING ==========
+        # ONLY actual streaming services (Netflix, Spotify, etc.)
+        # Note: Very few cards have streaming-specific bonuses
         streaming_detailed = [
-            "ENTERTAINMENT_TV_AND_MOVIES",
-            "ENTERTAINMENT_MUSIC_AND_AUDIO",
+            "ENTERTAINMENT_TV_AND_MOVIES",  # Netflix, Hulu, Disney+
+            "ENTERTAINMENT_MUSIC_AND_AUDIO",  # Spotify, Apple Music
         ]
         for category in streaming_detailed:
             self.detailed_to_bucket[category] = RewardBucket.STREAMING
         
         # ========== WHOLESALE ==========
-        # Note: Superstores mapped to GROCERY above for better cashback alignment
-        # Wholesale clubs would go here if we had specific identifiers
+        # Note: Superstores already mapped to GROCERY above
+        # True wholesale clubs (Costco, Sam's Club) would go here if identifiable
         
         # ========== DRUGSTORE ==========
+        # Pharmacies and medical supplies
         drugstore_detailed = [
-            "MEDICAL_PHARMACIES_AND_SUPPLEMENTS",
+            "MEDICAL_PHARMACIES_AND_SUPPLEMENTS",  # CVS, Walgreens, prescriptions
         ]
         for category in drugstore_detailed:
             self.detailed_to_bucket[category] = RewardBucket.DRUGSTORE
         
         # ========== UTILITIES ==========
+        # Recurring utility bills and home services
         utilities_detailed = [
             "RENT_AND_UTILITIES_GAS_AND_ELECTRICITY",
             "RENT_AND_UTILITIES_INTERNET_AND_CABLE",
-            "RENT_AND_UTILITIES_TELEPHONE",
+            "RENT_AND_UTILITIES_TELEPHONE",  # Phone bills
             "RENT_AND_UTILITIES_WATER",
             "RENT_AND_UTILITIES_SEWAGE_AND_WASTE_MANAGEMENT",
             "RENT_AND_UTILITIES_OTHER_UTILITIES",
-            "GENERAL_SERVICES_POSTAGE_AND_SHIPPING",  # Utility-like recurring service
-            "HOME_IMPROVEMENT_SECURITY",  # Home security systems (utilities category)
+            "GENERAL_SERVICES_POSTAGE_AND_SHIPPING",  # Shipping services
+            "HOME_IMPROVEMENT_SECURITY",  # Home security systems
+            "GENERAL_SERVICES_INSURANCE",  # Insurance payments
         ]
         for category in utilities_detailed:
             self.detailed_to_bucket[category] = RewardBucket.UTILITIES
@@ -162,11 +183,14 @@ class NormalizationMapper:
         # ========== PRIMARY CATEGORY FALLBACKS ==========
         # If detailed category doesn't match, try these primary categories
         self.primary_to_bucket["FOOD_AND_DRINK"] = RewardBucket.DINING
-        self.primary_to_bucket["TRANSPORTATION"] = RewardBucket.TRAVEL  # Trains, buses, public transit
+        self.primary_to_bucket["TRANSPORTATION"] = RewardBucket.TRAVEL  # All transportation → travel
         self.primary_to_bucket["TRAVEL"] = RewardBucket.TRAVEL
-        self.primary_to_bucket["ENTERTAINMENT"] = RewardBucket.STREAMING
-        self.primary_to_bucket["MEDICAL"] = RewardBucket.DRUGSTORE  # Doctor visits, pharmacies
+        self.primary_to_bucket["ENTERTAINMENT"] = RewardBucket.GENERAL  # FIXED: Most entertainment → general rate
+        self.primary_to_bucket["MEDICAL"] = RewardBucket.DRUGSTORE  # Medical expenses → drugstore
         self.primary_to_bucket["RENT_AND_UTILITIES"] = RewardBucket.UTILITIES
+        
+        # Note: GENERAL_MERCHANDISE, GENERAL_SERVICES, HOME_IMPROVEMENT, PERSONAL_CARE
+        # deliberately have NO primary fallback - they go to GENERAL unless specifically mapped
     
     def get_internal_bucket(
         self, 
