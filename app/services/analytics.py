@@ -1,0 +1,194 @@
+"""
+Cashback Optimization Engine - Analytics Service
+Provides aggregate insights and recommendations using efficient SQL queries
+"""
+
+from sqlmodel import Session, select, func
+from app.models import Transaction, Card, PlaidItem
+from typing import Dict, List, Any, Optional
+from decimal import Decimal
+from uuid import UUID
+
+
+class AnalyticsService:
+    """
+    Service for calculating analytics metrics using database-side aggregations.
+    All methods use SQLAlchemy func.sum, func.count, and GROUP BY for efficiency.
+    """
+
+    @staticmethod
+    def get_savings_summary(session: Session, user_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Calculate aggregate spending and opportunity cost metrics for a user.
+        
+        Args:
+            session: Database session
+            user_id: UUID of the user
+            
+        Returns:
+            Dictionary with total_spent, total_lost_savings, total_earned, transaction_count
+        """
+        # Build query with JOINs to filter by user_id
+        query = (
+            select(
+                func.sum(Transaction.amount).label("total_spent"),
+                func.sum(Transaction.lost_savings).label("total_lost_savings"),
+                func.sum(Transaction.actual_cashback).label("total_earned"),
+                func.count(Transaction.id).label("transaction_count")
+            )
+            .join(Card, Transaction.card_id == Card.id)
+            .join(PlaidItem, Card.plaid_item_id == PlaidItem.id)
+            .where(PlaidItem.user_id == UUID(user_id))
+            .where(Transaction.is_analyzable == True)
+        )
+        
+        result = session.exec(query).first()
+        
+        if not result or result[0] is None:
+            return None
+            
+        return {
+            "total_spent": float(result[0]) if result[0] else 0.0,
+            "total_lost_savings": float(result[1]) if result[1] else 0.0,
+            "total_earned": float(result[2]) if result[2] else 0.0,
+            "transaction_count": result[3] if result[3] else 0,
+            "total_potential": float(result[2] + result[1]) if result[2] and result[1] else 0.0
+        }
+
+    @staticmethod
+    def get_category_breakdown(session: Session, user_id: str) -> List[Dict[str, Any]]:
+        """
+        Group transactions by internal_bucket and calculate opportunity cost per category.
+        
+        Args:
+            session: Database session
+            user_id: UUID of the user
+            
+        Returns:
+            List of dictionaries with bucket, transaction_count, total_spent, lost_savings
+        """
+        # Define aggregations with labels
+        lost_savings_sum = func.sum(Transaction.lost_savings).label("lost_savings")
+        
+        query = (
+            select(
+                Transaction.internal_bucket,
+                func.count(Transaction.id).label("transaction_count"),
+                func.sum(Transaction.amount).label("total_spent"),
+                lost_savings_sum,
+                func.sum(Transaction.actual_cashback).label("actual_cashback"),
+                func.sum(Transaction.best_possible_cashback).label("potential_cashback")
+            )
+            .join(Card, Transaction.card_id == Card.id)
+            .join(PlaidItem, Card.plaid_item_id == PlaidItem.id)
+            .where(PlaidItem.user_id == UUID(user_id))
+            .where(Transaction.is_analyzable == True)
+            .group_by(Transaction.internal_bucket)
+            .order_by(lost_savings_sum.desc())
+        )
+        
+        results = session.exec(query).all()
+        
+        breakdown = []
+        for row in results:
+            breakdown.append({
+                "category": row[0],
+                "transaction_count": row[1],
+                "total_spent": float(row[2]) if row[2] else 0.0,
+                "lost_savings": float(row[3]) if row[3] else 0.0,
+                "actual_cashback": float(row[4]) if row[4] else 0.0,
+                "potential_cashback": float(row[5]) if row[5] else 0.0
+            })
+        
+        return breakdown
+
+    @staticmethod
+    def get_top_recommendation(session: Session, user_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Identify the card that would save the most money if the user switched to it.
+        
+        Args:
+            session: Database session
+            user_id: UUID of the user
+            
+        Returns:
+            Dictionary with card details, times_recommended, and total_potential_savings
+        """
+        # Define aggregation with label for ORDER BY
+        total_potential_savings = func.sum(Transaction.lost_savings).label("total_potential_savings")
+        
+        query = (
+            select(
+                Card.provider,
+                Card.card_name,
+                func.count(Transaction.id).label("times_recommended"),
+                total_potential_savings,
+                func.avg(Transaction.lost_savings).label("avg_savings_per_transaction")
+            )
+            .join(Card, Transaction.best_card_id == Card.id)
+            .join(PlaidItem, Card.plaid_item_id == PlaidItem.id)
+            .where(PlaidItem.user_id == UUID(user_id))
+            .where(Transaction.is_analyzable == True)
+            .where(Transaction.best_card_id.isnot(None))
+            .group_by(Card.id, Card.provider, Card.card_name)
+            .order_by(total_potential_savings.desc())
+            .limit(1)
+        )
+        
+        result = session.exec(query).first()
+        
+        if not result:
+            return None
+            
+        return {
+            "provider": result[0],
+            "card_name": result[1],
+            "times_recommended": result[2],
+            "total_potential_savings": float(result[3]) if result[3] else 0.0,
+            "avg_savings_per_transaction": float(result[4]) if result[4] else 0.0
+        }
+
+    @staticmethod
+    def get_card_performance_comparison(session: Session, user_id: str) -> List[Dict[str, Any]]:
+        """
+        Compare all cards and show how much each could save if used optimally.
+        
+        Args:
+            session: Database session
+            user_id: UUID of the user
+            
+        Returns:
+            List of dictionaries with card details and potential savings
+        """
+        # Define aggregation with label for ORDER BY
+        potential_savings = func.sum(Transaction.lost_savings).label("potential_savings")
+        
+        query = (
+            select(
+                Card.provider,
+                Card.card_name,
+                func.count(Transaction.id).label("optimal_transaction_count"),
+                potential_savings
+            )
+            .join(Card, Transaction.best_card_id == Card.id)
+            .join(PlaidItem, Card.plaid_item_id == PlaidItem.id)
+            .where(PlaidItem.user_id == UUID(user_id))
+            .where(Transaction.is_analyzable == True)
+            .where(Transaction.best_card_id.isnot(None))
+            .group_by(Card.id, Card.provider, Card.card_name)
+            .order_by(potential_savings.desc())
+        )
+        
+        results = session.exec(query).all()
+        
+        comparison = []
+        for row in results:
+            comparison.append({
+                "provider": row[0],
+                "card_name": row[1],
+                "optimal_transaction_count": row[2],
+                "potential_savings": float(row[3]) if row[3] else 0.0
+            })
+        
+        return comparison
+
