@@ -152,42 +152,43 @@ docker-compose down -v
 
 ```
 .
-├── app/                     # Backend application
-│   ├── __init__.py
-│   ├── main.py              # FastAPI application entry point
-│   ├── api/                 # API endpoint routers
-│   │   ├── sync.py          # Transaction sync endpoints
-│   │   ├── users.py         # User management endpoints
-│   │   ├── items.py         # PlaidItem endpoints
-│   │   └── analytics.py     # Analytics endpoints
-│   ├── routers/             # Complex consolidated routers
-│   │   └── reports.py       # Consolidated reports endpoint
-│   ├── core/                # Core configurations
-│   │   ├── database.py      # Database connection & session
-│   │   └── plaid.py         # Plaid API client singleton
-│   ├── logic/               # Business logic
-│   │   └── mapper.py        # Category normalization mapper
-│   ├── models/              # Database models
-│   │   └── models.py        # SQLModel definitions
-│   ├── services/            # Business services
-│   │   ├── optimizer.py     # Cashback optimization engine
-│   │   └── analytics.py     # Analytics calculations
-│   └── schemas/             # Pydantic schemas
-│       └── schemas.py       # API response models
-├── frontend/                # Streamlit dashboard
-│   ├── app.py               # Main dashboard application
+├── backend/                 # Backend service
+│   ├── app/                 # FastAPI application
+│   │   ├── main.py          # Application entry point
+│   │   ├── api/             # API endpoint routers
+│   │   │   ├── sync.py      # Transaction sync endpoints
+│   │   │   ├── users.py     # User management endpoints
+│   │   │   ├── items.py     # PlaidItem endpoints
+│   │   │   └── analytics.py # Analytics endpoints
+│   │   ├── routers/         # Complex consolidated routers
+│   │   │   └── reports.py   # Consolidated reports endpoint
+│   │   ├── core/            # Core configurations
+│   │   │   ├── database.py  # Database connection & session
+│   │   │   └── plaid.py     # Plaid API client singleton
+│   │   ├── logic/           # Business logic
+│   │   │   └── mapper.py    # Category normalization mapper
+│   │   ├── models/          # Database models
+│   │   │   └── models.py    # SQLModel definitions
+│   │   ├── services/        # Business services
+│   │   │   ├── optimizer.py # Cashback optimization engine
+│   │   │   └── analytics.py # Analytics calculations
+│   │   └── schemas/         # Pydantic schemas
+│   │       └── schemas.py   # API response models
+│   ├── scripts/             # Backend utility scripts
+│   │   ├── seed_poc_cards.py    # Seed test cards & rules
+│   │   ├── audit_mappings.py    # Category mapper audit
+│   │   └── update_buckets.py    # Re-map transaction categories
+│   ├── Dockerfile           # Backend container definition
+│   └── requirements.txt     # Backend Python dependencies
+├── frontend/                # Frontend service
+│   ├── app.py               # Streamlit dashboard application
 │   ├── Dockerfile           # Frontend container definition
 │   ├── requirements.txt     # Frontend Python dependencies
 │   └── README.md            # Frontend documentation
-├── scripts/                 # Utility scripts
-│   ├── seed_poc_cards.py    # Seed test cards & rules
-│   ├── audit_mappings.py    # Category mapper audit
-│   └── update_buckets.py    # Re-map transaction categories
 ├── docker-compose.yml       # Multi-container orchestration
-├── Dockerfile               # Backend container definition
-├── requirements.txt         # Backend Python dependencies
-├── .env.example             # Environment variables template
+├── env.example              # Environment variables template
 ├── LEARNINGS.md             # Troubleshooting guide
+├── DOCKER_GUIDE.md          # Docker deployment guide
 └── README.md                # This file
 ```
 
