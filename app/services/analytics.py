@@ -192,3 +192,66 @@ class AnalyticsService:
         
         return comparison
 
+    @staticmethod
+    def get_optimization_opportunities(session: Session, user_id: str) -> List[Dict[str, Any]]:
+        """
+        Get individual transactions with optimization opportunities (lost_savings > 0).
+        
+        Returns transaction details including merchant, category, amounts, and 
+        the recommended optimal card for each transaction.
+        
+        Args:
+            session: Database session
+            user_id: UUID of the user
+            
+        Returns:
+            List of dictionaries with transaction details and recommendations
+        """
+        # Join pattern: Transaction -> best_card (Card) -> PlaidItem (for user filter)
+        # AND Transaction -> card_used (Card) -> PlaidItem (for user filter)
+        # We need to alias the cards to differentiate
+        from sqlalchemy.orm import aliased
+        
+        BestCard = aliased(Card)
+        UsedCard = aliased(Card)
+        
+        query = (
+            select(
+                Transaction.merchant_name,
+                Transaction.amount,
+                Transaction.date,
+                Transaction.internal_bucket,
+                Transaction.actual_cashback,
+                Transaction.best_possible_cashback,
+                Transaction.lost_savings,
+                BestCard.provider,
+                BestCard.card_name
+            )
+            .join(BestCard, Transaction.best_card_id == BestCard.id)
+            .join(UsedCard, Transaction.card_id == UsedCard.id)
+            .join(PlaidItem, UsedCard.plaid_item_id == PlaidItem.id)
+            .where(PlaidItem.user_id == UUID(user_id))
+            .where(Transaction.is_analyzable == True)
+            .where(Transaction.lost_savings > 0)
+            .order_by(Transaction.lost_savings.desc())
+            .limit(50)  # Limit to top 50 opportunities for performance
+        )
+        
+        results = session.exec(query).all()
+        
+        opportunities = []
+        for row in results:
+            opportunities.append({
+                "merchant_name": row[0],
+                "amount": float(row[1]) if row[1] else 0.0,
+                "date": str(row[2]) if row[2] else None,
+                "internal_bucket": row[3],
+                "actual_cashback": float(row[4]) if row[4] else 0.0,
+                "best_possible_cashback": float(row[5]) if row[5] else 0.0,
+                "lost_savings": float(row[6]) if row[6] else 0.0,
+                "best_card_provider": row[7],
+                "best_card_name": row[8]
+            })
+        
+        return opportunities
+

@@ -38,16 +38,21 @@ This setup provides a minimal, stable environment where a FastAPI container can 
    This will:
    - Start a PostgreSQL 16 database on port 5432
    - Build and start the FastAPI backend on port 8000
+   - Build and start the Streamlit frontend on port 8501
    - Wait for the database to be healthy before starting the backend
 
-3. **Verify the setup**
+3. **Access the application**
    
-   Open your browser and test these endpoints:
+   - **📊 Dashboard (Frontend)**: http://localhost:8501
+     - Interactive Streamlit dashboard with savings insights
    
-   - **Backend Health Check**: http://localhost:8000/
+   - **🔌 API Backend**: http://localhost:8000/
      - Expected response: `{"status": "Backend is Online"}`
    
-   - **Database Connection Test**: http://localhost:8000/db-test
+   - **📚 API Documentation**: http://localhost:8000/docs
+     - Auto-generated Swagger UI
+   
+   - **🗄️ Database Connection Test**: http://localhost:8000/db-test
      - Expected response: `{"status": "Database Connected"}`
 
 ### Available Endpoints
@@ -113,6 +118,11 @@ curl -X POST http://localhost:8000/sync/{item_id}
   - Platform: linux/arm64
   - Hot-reload enabled (code changes reflect automatically)
 
+- **frontend**: Streamlit dashboard
+  - Port: 8501
+  - Platform: linux/arm64
+  - Connects to backend via Docker network
+
 ### Stopping the Services
 
 ```bash
@@ -142,51 +152,93 @@ docker-compose down -v
 
 ```
 .
-├── app/
+├── app/                     # Backend application
 │   ├── __init__.py
 │   ├── main.py              # FastAPI application entry point
-│   ├── api/                 # API endpoints (future)
-│   ├── core/                # Core configurations (future)
-│   ├── logic/               # Business logic (future)
-│   └── models/              # Database models (future)
+│   ├── api/                 # API endpoint routers
+│   │   ├── sync.py          # Transaction sync endpoints
+│   │   ├── users.py         # User management endpoints
+│   │   ├── items.py         # PlaidItem endpoints
+│   │   └── analytics.py     # Analytics endpoints
+│   ├── routers/             # Complex consolidated routers
+│   │   └── reports.py       # Consolidated reports endpoint
+│   ├── core/                # Core configurations
+│   │   ├── database.py      # Database connection & session
+│   │   └── plaid.py         # Plaid API client singleton
+│   ├── logic/               # Business logic
+│   │   └── mapper.py        # Category normalization mapper
+│   ├── models/              # Database models
+│   │   └── models.py        # SQLModel definitions
+│   ├── services/            # Business services
+│   │   ├── optimizer.py     # Cashback optimization engine
+│   │   └── analytics.py     # Analytics calculations
+│   └── schemas/             # Pydantic schemas
+│       └── schemas.py       # API response models
+├── frontend/                # Streamlit dashboard
+│   ├── app.py               # Main dashboard application
+│   ├── Dockerfile           # Frontend container definition
+│   ├── requirements.txt     # Frontend Python dependencies
+│   └── README.md            # Frontend documentation
+├── scripts/                 # Utility scripts
+│   ├── seed_poc_cards.py    # Seed test cards & rules
+│   ├── audit_mappings.py    # Category mapper audit
+│   └── update_buckets.py    # Re-map transaction categories
 ├── docker-compose.yml       # Multi-container orchestration
 ├── Dockerfile               # Backend container definition
-├── requirements.txt         # Python dependencies
+├── requirements.txt         # Backend Python dependencies
 ├── .env.example             # Environment variables template
-├── .gitignore              # Git ignore rules
-└── README.md               # This file
+├── LEARNINGS.md             # Troubleshooting guide
+└── README.md                # This file
 ```
 
 ## 🛠️ Tech Stack
 
 - **Backend**: Python 3.12+ with FastAPI
+- **Frontend**: Streamlit with Plotly visualizations
 - **Database**: PostgreSQL 16
 - **ORM**: SQLModel (SQLAlchemy + Pydantic)
+- **External APIs**: Plaid API (transaction sync)
 - **Containerization**: Docker & Docker Compose
 - **Platform**: Optimized for MacBook M2 (arm64)
 
 ## 📝 Development Status
 
-**Completed:**
+**Phase 1: Core Infrastructure** ✅
 - ✅ Sub-Phase 1.1: Infrastructure Shell (Docker, PostgreSQL, FastAPI)
-- ✅ Sub-Phase 1.2: Data Models (User, PlaidItem, Card, Transaction)
+- ✅ Sub-Phase 1.2: Data Models (User, PlaidItem, Card, Transaction, RewardRule)
 - ✅ Sub-Phase 1.3: Category Mapper (Plaid PFCv2 → 10 internal reward buckets)
-  - ✅ Sub-Phase 1.3.1: Mapping Optimization (74.2% spending coverage)
+  - ✅ Sub-Phase 1.3.1: Mapping Optimization (improved coverage after review)
 - ✅ Sub-Phase 1.4: Sync Engine (Plaid transaction sync with 3-stage filter)
-  - ✅ Acid Test Complete: 6/6 test categories passed
-  - ✅ 146 transactions synced from Plaid Sandbox
-  - ✅ 2 credit cards automatically created
+  - ✅ 145 transactions synced from Plaid Sandbox
+  - ✅ 4 credit cards created
   - ✅ UPSERT logic validated (no duplicates)
-  - ✅ 3-stage filter working (83.6% analyzable, 16.4% non-analyzable)
+  - ✅ 3-stage filter working (83.4% analyzable)
 
-**Known Issue:**
-- ⚠️ `internal_bucket` field missing from Transaction model (fix in progress)
+**Phase 2: Optimization Engine** ✅
+- ✅ Phase 2.1: Card & Rules Registry (RewardRule model, card metadata)
+- ✅ Phase 2.2: Optimization Engine
+  - ✅ Seeding script with 4 POC cards
+  - ✅ Optimizer service calculating opportunity cost
+  - ✅ $611.86 in lost savings identified across 121 transactions
+- ✅ Phase 2.3: Analytics Service
+  - ✅ Savings summary endpoint
+  - ✅ Category breakdown endpoint
+  - ✅ Card recommendation endpoint
+  - ✅ Transaction opportunities endpoint
+  - ✅ Consolidated reports endpoint
+
+**Phase 3: Frontend** ✅
+- ✅ Streamlit dashboard with Docker deployment
+- ✅ Top-level metrics (Spent, Earned, Lost)
+- ✅ Interactive category breakdown charts
+- ✅ Card recommendation display
+- ✅ Transaction explorer (top 50 opportunities)
+- ✅ User selection sidebar
 
 **Next Steps:**
-- Fix: Add `internal_bucket` field to Transaction model
-- Sub-Phase 1.5: Optimization Engine (calculate best_card_id, lost_savings)
-- Reward rules management
-- Streamlit dashboard
+- Phase 4: Additional features (time-series, merchant insights)
+- Production deployment considerations
+- Frontend enhancements (filters, export)
 
 ## 📖 Documentation
 

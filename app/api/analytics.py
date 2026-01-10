@@ -116,3 +116,30 @@ async def get_card_performance_comparison(user_id: str, session: Session = Depen
             detail=f"Failed to get card comparison: {str(e)}"
         )
 
+
+@router.get("/opportunities/{user_id}", response_model=List[Dict[str, Any]])
+async def get_optimization_opportunities(user_id: str, session: Session = Depends(get_session)):
+    """
+    Get individual transactions with optimization opportunities.
+    
+    Returns transactions where lost_savings > 0, showing merchant details,
+    category, amount, and the recommended optimal card.
+    
+    Perfect for the Transaction Explorer feature in the frontend dashboard.
+    """
+    try:
+        opportunities = AnalyticsService.get_optimization_opportunities(session, user_id)
+        if not opportunities:
+            raise HTTPException(
+                status_code=404, 
+                detail="No optimization opportunities found for this user."
+            )
+        return opportunities
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid user_id: {str(e)}")
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to get optimization opportunities: {str(e)}"
+        )
+
