@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-Phase 2.2: POC Card Seeding Script
-Seeds 4 real-world credit cards with their reward structures.
+Phase 3.2: Market Library Card Seeding Script
+Seeds 10 total credit cards: 4 wallet cards + 6 market cards.
 
 This script:
-1. Creates 4 cards (Chase, Discover, BofA, Zolve)
-2. Inserts reward rules for each card
-3. Updates all transactions to use Zolve US (suboptimal card)
+1. Creates 4 wallet cards (is_in_user_wallet=True): Chase, Discover, BofA, Zolve
+2. Creates 6 market cards (is_in_user_wallet=False): Amex Gold, Cap One Savor, etc.
+3. Inserts reward rules for each card
+4. Updates all transactions to use Zolve US (suboptimal card)
 
 Usage:
     python scripts/seed_poc_cards.py
@@ -26,11 +27,14 @@ from app.models import Card, RewardRule, Transaction
 
 
 # Card definitions with their reward structures
+# Phase 3.2: 4 wallet cards + 6 market cards = 10 total
 CARDS_DATA = [
+    # ========== WALLET CARDS (is_in_user_wallet=True) ==========
     {
         "provider": "Chase",
         "card_name": "Freedom Unlimited",
         "base_reward_rate": Decimal("1.5"),
+        "is_in_user_wallet": True,
         "rules": [
             {"bucket": "DINING", "multiplier": Decimal("3.0")},
             {"bucket": "DRUGSTORE", "multiplier": Decimal("3.0")},
@@ -41,6 +45,7 @@ CARDS_DATA = [
         "provider": "Discover",
         "card_name": "it",
         "base_reward_rate": Decimal("1.0"),
+        "is_in_user_wallet": True,
         "rules": [
             {"bucket": "GROCERY", "multiplier": Decimal("5.0")},
             {"bucket": "WHOLESALE", "multiplier": Decimal("5.0")},
@@ -52,6 +57,7 @@ CARDS_DATA = [
         "provider": "Bank of America",
         "card_name": "Customized Cash",
         "base_reward_rate": Decimal("1.0"),
+        "is_in_user_wallet": True,
         "rules": [
             {"bucket": "ONLINE_SHOPPING", "multiplier": Decimal("3.0")},
             {"bucket": "GROCERY", "multiplier": Decimal("2.0")},
@@ -62,10 +68,83 @@ CARDS_DATA = [
         "provider": "Zolve",
         "card_name": "US",
         "base_reward_rate": Decimal("1.0"),
+        "is_in_user_wallet": True,
         "rules": [
             {"bucket": "GENERAL", "multiplier": Decimal("1.0")},
         ]
-    }
+    },
+    
+    # ========== MARKET CARDS (is_in_user_wallet=False) ==========
+    {
+        "provider": "American Express",
+        "card_name": "Gold Card",
+        "base_reward_rate": Decimal("1.0"),
+        "is_in_user_wallet": False,
+        "rules": [
+            {"bucket": "DINING", "multiplier": Decimal("4.0")},
+            {"bucket": "GROCERY", "multiplier": Decimal("4.0")},
+            {"bucket": "TRAVEL", "multiplier": Decimal("3.0")},
+            {"bucket": "GENERAL", "multiplier": Decimal("1.0")},
+        ]
+    },
+    {
+        "provider": "Capital One",
+        "card_name": "SavorOne",
+        "base_reward_rate": Decimal("1.0"),
+        "is_in_user_wallet": False,
+        "rules": [
+            {"bucket": "DINING", "multiplier": Decimal("4.0")},
+            {"bucket": "STREAMING", "multiplier": Decimal("4.0")},
+            {"bucket": "GROCERY", "multiplier": Decimal("3.0")},
+            {"bucket": "GENERAL", "multiplier": Decimal("1.0")},
+        ]
+    },
+    {
+        "provider": "American Express",
+        "card_name": "Blue Cash Everyday",
+        "base_reward_rate": Decimal("1.0"),
+        "is_in_user_wallet": False,
+        "rules": [
+            {"bucket": "ONLINE_SHOPPING", "multiplier": Decimal("3.0")},
+            {"bucket": "GAS", "multiplier": Decimal("3.0")},
+            {"bucket": "GROCERY", "multiplier": Decimal("3.0")},
+            {"bucket": "GENERAL", "multiplier": Decimal("1.0")},
+        ]
+    },
+    {
+        "provider": "Citi",
+        "card_name": "Custom Cash",
+        "base_reward_rate": Decimal("1.0"),
+        "is_in_user_wallet": False,
+        "rules": [
+            # Note: Citi Custom Cash gives 5% on top spend category up to $500/month
+            # For simplicity, applying 5% to major categories
+            {"bucket": "DINING", "multiplier": Decimal("5.0")},
+            {"bucket": "GROCERY", "multiplier": Decimal("5.0")},
+            {"bucket": "GAS", "multiplier": Decimal("5.0")},
+            {"bucket": "TRAVEL", "multiplier": Decimal("5.0")},
+            {"bucket": "GENERAL", "multiplier": Decimal("1.0")},
+        ]
+    },
+    {
+        "provider": "Capital One",
+        "card_name": "Venture X",
+        "base_reward_rate": Decimal("2.0"),
+        "is_in_user_wallet": False,
+        "rules": [
+            {"bucket": "GENERAL", "multiplier": Decimal("2.0")},
+        ]
+    },
+    {
+        "provider": "American Express",
+        "card_name": "Platinum Card",
+        "base_reward_rate": Decimal("1.0"),
+        "is_in_user_wallet": False,
+        "rules": [
+            {"bucket": "TRAVEL", "multiplier": Decimal("5.0")},
+            {"bucket": "GENERAL", "multiplier": Decimal("1.0")},
+        ]
+    },
 ]
 
 
@@ -114,11 +193,11 @@ def get_or_create_plaid_item(session: Session) -> UUID:
 
 def seed_cards(session: Session):
     """
-    Insert the 4 POC cards with their reward rules.
+    Insert the 10 cards (4 wallet + 6 market) with their reward rules.
     Returns the ID of the Zolve US card.
     """
     print("\n" + "="*70)
-    print("PHASE 2.2: SEEDING POC CARDS")
+    print("PHASE 3.2: SEEDING MARKET LIBRARY (10 CARDS)")
     print("="*70 + "\n")
     
     # Get or create a PlaidItem to link cards to
@@ -147,13 +226,15 @@ def seed_cards(session: Session):
                 provider=card_data["provider"],
                 card_name=card_data["card_name"],
                 base_reward_rate=card_data["base_reward_rate"],
+                is_in_user_wallet=card_data.get("is_in_user_wallet", False),
                 mask="SEED"
             )
             session.add(card)
             session.commit()
             session.refresh(card)
             
-            print(f"\n{idx}. {card_data['provider']} {card_data['card_name']}")
+            wallet_status = "🔵 WALLET" if card.is_in_user_wallet else "🟢 MARKET"
+            print(f"\n{idx}. {wallet_status} | {card_data['provider']} {card_data['card_name']}")
             print(f"   ✓ Card created (ID: {card.id})")
             print(f"   Base rate: {card.base_reward_rate}%")
         
@@ -242,7 +323,9 @@ def main():
             
             # Count cards and rules
             cards_statement = select(Card).where(Card.mask == "SEED")
-            cards_count = len(session.exec(cards_statement).all())
+            all_cards = session.exec(cards_statement).all()
+            wallet_cards = [c for c in all_cards if c.is_in_user_wallet]
+            market_cards = [c for c in all_cards if not c.is_in_user_wallet]
             
             rules_statement = select(RewardRule)
             rules_count = len(session.exec(rules_statement).all())
@@ -250,11 +333,13 @@ def main():
             txn_statement = select(Transaction).where(Transaction.card_id == zolve_card_id)
             txn_count = len(session.exec(txn_statement).all())
             
-            print(f"\n✅ {cards_count} POC cards created")
+            print(f"\n✅ {len(all_cards)} total cards created")
+            print(f"   🔵 {len(wallet_cards)} wallet cards (is_in_user_wallet=True)")
+            print(f"   🟢 {len(market_cards)} market cards (is_in_user_wallet=False)")
             print(f"✅ {rules_count} reward rules configured")
             print(f"✅ {txn_count} transactions set to Zolve US (suboptimal)")
             print(f"\n🎯 Ready to run optimizer: POST /optimize")
-            print(f"   Expected: Discover significant opportunity cost!\n")
+            print(f"   Expected: Optimizer will scan all 10 cards for market winner!\n")
             
             return 0
             

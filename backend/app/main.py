@@ -19,7 +19,7 @@ from app.logic import get_mapper, RewardBucket
 from app.core.database import engine, DATABASE_URL, get_session
 
 # Import API routers
-from app.api import sync, users, items, analytics
+from app.api import sync, users, items, analytics, cards
 from app.routers import reports
 
 # Import services
@@ -38,6 +38,7 @@ app.include_router(items.router)
 app.include_router(sync.router)
 app.include_router(analytics.router)
 app.include_router(reports.router)
+app.include_router(cards.router)
 
 
 # ========== Request/Response Models ==========

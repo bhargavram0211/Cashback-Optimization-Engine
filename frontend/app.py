@@ -42,6 +42,24 @@ def fetch_savings_report(user_id: str) -> Optional[Dict[str, Any]]:
         return None
 
 
+def fetch_all_cards() -> Optional[list]:
+    """
+    Fetch all cards with their reward rules from the backend.
+    
+    Phase 3.2: Card Discovery Page
+    
+    Returns:
+        List of cards or None if error
+    """
+    try:
+        response = requests.get(f"{BACKEND_URL}/cards")
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        st.error(f"Failed to fetch cards from backend: {str(e)}")
+        return None
+
+
 def fetch_transaction_opportunities(user_id: str) -> Optional[pd.DataFrame]:
     """
     Fetch transactions with optimization opportunities from the backend.
@@ -65,29 +83,13 @@ def fetch_transaction_opportunities(user_id: str) -> Optional[pd.DataFrame]:
         return None
 
 
-def main():
-    """Main Streamlit application."""
+def dashboard_page(user_id: str):
+    """
+    Main dashboard showing savings insights and recommendations.
     
-    # Sidebar: User Selection
-    st.sidebar.title("⚙️ Settings")
-    st.sidebar.markdown("---")
-    
-    # User ID Input
-    user_id = st.sidebar.text_input(
-        "User ID",
-        value="4b0939d1-7595-414e-bbd9-597f41c39e99",
-        help="Enter the UUID of the user to view their savings report"
-    )
-    
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("""
-    ### 💡 About
-    This dashboard shows your credit card cashback optimization insights:
-    - **Total Spent**: Your transaction volume
-    - **Actual Rewards**: Cashback you earned
-    - **Lost Savings**: Opportunity cost from suboptimal card usage
-    """)
-    
+    Args:
+        user_id: UUID of the user to display data for
+    """
     # Main Content
     st.title("💳 Cashback Optimization Dashboard")
     st.markdown("**Maximize your credit card rewards by using the right card for every purchase.**")
@@ -289,6 +291,134 @@ def main():
         <p>Cashback Optimization Engine v0.4.0</p>
     </div>
     """, unsafe_allow_html=True)
+
+
+def card_discovery_page():
+    """
+    Phase 3.2: Card Discovery Page
+    Displays all cards (wallet + market) with their reward structures.
+    """
+    st.title("🏪 Card Discovery")
+    st.markdown("**Explore our complete card library and find the perfect card for your spending.**")
+    st.markdown("---")
+    
+    # Fetch all cards
+    with st.spinner("Loading card library..."):
+        cards = fetch_all_cards()
+    
+    if not cards:
+        st.error("❌ Unable to load cards from backend")
+        return
+    
+    # Separate wallet and market cards
+    wallet_cards = [c for c in cards if c.get('is_in_user_wallet')]
+    market_cards = [c for c in cards if not c.get('is_in_user_wallet') and c.get('provider')]
+    
+    # ========== Wallet Cards Section ==========
+    st.subheader(f"💼 Cards in Your Wallet ({len(wallet_cards)})")
+    st.markdown("These are the cards you currently own.")
+    
+    if wallet_cards:
+        cols = st.columns(2)
+        for idx, card in enumerate(wallet_cards):
+            with cols[idx % 2]:
+                with st.container():
+                    st.markdown(f"""
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                                padding: 20px; border-radius: 10px; color: white; margin-bottom: 15px;">
+                        <h3 style="margin: 0; color: white;">{card['provider']}</h3>
+                        <h4 style="margin: 5px 0; color: white;">{card['card_name']}</h4>
+                        <p style="margin: 5px 0; font-size: 14px;">Base Rate: {card['base_reward_rate']}%</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # Display top 3 reward categories
+                    reward_rules = card.get('reward_rules', [])
+                    if reward_rules:
+                        st.markdown("**🎁 Top Rewards:**")
+                        for i, rule in enumerate(reward_rules[:3]):
+                            st.markdown(f"• **{rule['multiplier']:.0f}%** on {rule['bucket'].replace('_', ' ').title()}")
+                    else:
+                        st.markdown(f"• **{card['base_reward_rate']}%** on all purchases")
+                    
+                    st.markdown("---")
+    
+    # ========== Market Cards Section ==========
+    st.subheader(f"🌟 Top Market Recommendations ({len(market_cards)})")
+    st.markdown("Consider applying for these cards to maximize your rewards.")
+    
+    if market_cards:
+        cols = st.columns(2)
+        for idx, card in enumerate(market_cards):
+            with cols[idx % 2]:
+                with st.container():
+                    st.markdown(f"""
+                    <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); 
+                                padding: 20px; border-radius: 10px; color: white; margin-bottom: 15px;">
+                        <h3 style="margin: 0; color: white;">{card['provider']}</h3>
+                        <h4 style="margin: 5px 0; color: white;">{card['card_name']}</h4>
+                        <p style="margin: 5px 0; font-size: 14px;">Base Rate: {card['base_reward_rate']}%</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # Display top 3 reward categories
+                    reward_rules = card.get('reward_rules', [])
+                    if reward_rules:
+                        st.markdown("**🎁 Top Rewards:**")
+                        for i, rule in enumerate(reward_rules[:3]):
+                            st.markdown(f"• **{rule['multiplier']:.0f}%** on {rule['bucket'].replace('_', ' ').title()}")
+                    else:
+                        st.markdown(f"• **{card['base_reward_rate']}%** on all purchases")
+                    
+                    # Benefits URL placeholder
+                    st.caption("💡 Learn more about this card's benefits")
+                    st.markdown("---")
+    
+    # Footer
+    st.markdown("---")
+    st.markdown("""
+    <div style="text-align: center; color: #666; padding: 20px;">
+        <p>Card data based on 2026 reward structures</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def main():
+    """Main Streamlit application with page navigation."""
+    
+    # Sidebar Navigation
+    st.sidebar.title("🧭 Navigation")
+    page = st.sidebar.radio(
+        "Choose a page:",
+        ["My Dashboard", "Card Discovery"],
+        label_visibility="collapsed"
+    )
+    
+    st.sidebar.markdown("---")
+    
+    # User settings (only show for Dashboard page)
+    if page == "My Dashboard":
+        st.sidebar.title("⚙️ Settings")
+        user_id = st.sidebar.text_input(
+            "User ID",
+            value="5e229346-54a4-4755-80b2-ee89875d4db6",
+            help="Enter the UUID of the user to view their savings report"
+        )
+        
+        st.sidebar.markdown("---")
+        st.sidebar.markdown("""
+        ### 💡 About
+        This dashboard shows your credit card cashback optimization insights:
+        - **Total Spent**: Your transaction volume
+        - **Actual Rewards**: Cashback you earned
+        - **Lost Savings**: Opportunity cost from suboptimal card usage
+        """)
+    
+    # Route to appropriate page
+    if page == "My Dashboard":
+        dashboard_page(user_id)
+    else:
+        card_discovery_page()
 
 
 if __name__ == "__main__":

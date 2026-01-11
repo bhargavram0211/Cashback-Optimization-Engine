@@ -61,21 +61,27 @@ def get_card_multiplier(
 def find_best_card_for_bucket(
     session: Session,
     bucket: str,
-    exclude_card_id: Optional[UUID] = None
+    exclude_card_id: Optional[UUID] = None,
+    wallet_only: bool = False
 ) -> Tuple[UUID, Decimal]:
     """
     Find the card with the highest multiplier for a given bucket.
+    
+    Phase 3.2: Now supports filtering by wallet_only flag.
     
     Args:
         session: Database session
         bucket: Internal reward bucket
         exclude_card_id: Optional card to exclude from search
+        wallet_only: If True, only consider cards with is_in_user_wallet=True
     
     Returns:
         Tuple of (best_card_id, best_multiplier)
     """
-    # Get all cards
+    # Get all cards (optionally filtered by wallet)
     cards_statement = select(Card)
+    if wallet_only:
+        cards_statement = cards_statement.where(Card.is_in_user_wallet == True)
     cards = session.exec(cards_statement).all()
     
     best_card_id = None
@@ -154,29 +160,45 @@ def optimize_transaction(session: Session, transaction: Transaction) -> Dict[str
     # Calculate what was actually earned
     actual_cashback = calculate_cashback(transaction.amount, current_multiplier)
     
-    # Find the best card for this bucket
+    # Phase 3.2 - PASS 1: Find the best WALLET card for lost_savings calculation
+    # This only considers cards the user owns (is_in_user_wallet=True)
     best_card_id, best_multiplier = find_best_card_for_bucket(
         session,
-        transaction.internal_bucket
+        transaction.internal_bucket,
+        wallet_only=True
     )
     
-    # Calculate what could have been earned
+    # Calculate what could have been earned with wallet cards
     best_possible_cashback = calculate_cashback(transaction.amount, best_multiplier)
     
-    # Calculate opportunity cost
+    # Calculate opportunity cost (wallet-based)
     lost_savings = best_possible_cashback - actual_cashback
     
-    # Update transaction
+    # Phase 3.2 - PASS 2: Find the MARKET WINNER from ALL cards
+    # This scans all 10 cards (4 wallet + 6 market)
+    market_winner_card_id, market_winner_multiplier = find_best_card_for_bucket(
+        session,
+        transaction.internal_bucket,
+        wallet_only=False  # Scan ALL cards
+    )
+    
+    # Calculate what could have been earned with the absolute best market card
+    market_winner_cashback = calculate_cashback(transaction.amount, market_winner_multiplier)
+    
+    # Update transaction with BOTH wallet and market results
     transaction.actual_cashback = actual_cashback
     transaction.best_card_id = best_card_id
     transaction.best_possible_cashback = best_possible_cashback
     transaction.lost_savings = lost_savings
+    transaction.market_winner_card_id = market_winner_card_id
+    transaction.market_winner_cashback = market_winner_cashback
     
     return {
         "optimized": True,
         "actual_cashback": float(actual_cashback),
         "best_possible_cashback": float(best_possible_cashback),
-        "lost_savings": float(lost_savings)
+        "lost_savings": float(lost_savings),
+        "market_winner_cashback": float(market_winner_cashback)
     }
 
 

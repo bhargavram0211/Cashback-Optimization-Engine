@@ -83,6 +83,17 @@ class Card(SQLModel, table=True):
         description="Base cashback rate (e.g., 1.0 for 1%, 1.5 for 1.5%)"
     )
     
+    # Phase 3.2: Market Library
+    is_in_user_wallet: bool = Field(
+        default=False,
+        description="True if user owns this card, False if market card"
+    )
+    image_url: Optional[str] = Field(
+        default=None,
+        sa_column=Column(String(500)),
+        description="URL to card image"
+    )
+    
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -175,17 +186,29 @@ class Transaction(SQLModel, table=True):
     best_card_id: Optional[UUID] = Field(
         default=None,
         foreign_key="cards.id",
-        description="Card that would have yielded highest rewards"
+        description="Best card from user's wallet (is_in_user_wallet=True)"
     )
     best_possible_cashback: Optional[Decimal] = Field(
         default=None,
         sa_column=Column(DECIMAL(10, 2)),
-        description="Maximum possible cashback from best card"
+        description="Maximum possible cashback from best wallet card"
     )
     lost_savings: Decimal = Field(
         default=Decimal("0.0"),
         sa_column=Column(DECIMAL(10, 2), nullable=False),
-        description="Opportunity cost (best_possible - actual)"
+        description="Opportunity cost from wallet cards (best_possible - actual)"
+    )
+    
+    # Phase 3.2: Market Library - Best card from entire market
+    market_winner_card_id: Optional[UUID] = Field(
+        default=None,
+        foreign_key="cards.id",
+        description="Best card from entire market (all 10 cards including market cards)"
+    )
+    market_winner_cashback: Optional[Decimal] = Field(
+        default=None,
+        sa_column=Column(DECIMAL(10, 2)),
+        description="Maximum possible cashback from market winner card"
     )
     
     # Audit fields
