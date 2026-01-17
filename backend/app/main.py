@@ -20,7 +20,7 @@ from app.logic import get_mapper, RewardBucket
 from app.core.database import engine, DATABASE_URL, get_session
 
 # Import API routers
-from app.api import sync, users, items, analytics, cards
+from app.api import sync, users, items, analytics, cards, auth, plaid_link
 from app.routers import reports
 
 # Import services
@@ -34,6 +34,8 @@ app = FastAPI(
 )
 
 # Include API routers
+app.include_router(auth.router)  # Sprint 2: Authentication
+app.include_router(plaid_link.router)  # Sprint 2: Plaid Link
 app.include_router(users.router)
 app.include_router(items.router)
 app.include_router(sync.router)

@@ -7,4 +7,5 @@ pydantic[email]>=2.7.0
 pydantic-settings>=2.2.1
 plaid-python==20.0.0
 email-validator>=2.1.0
+bcrypt==4.1.2
 

@@ -21,11 +21,26 @@ class User(SQLModel, table=True):
     """
     Primary identity table.
     Represents a user of the cashback optimization system.
+    
+    Sprint 2: Added password authentication and onboarding tracking.
     """
     __tablename__ = "users"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     email: str = Field(sa_column=Column(String(255), unique=True, nullable=False, index=True))
+    password_hash: str = Field(
+        sa_column=Column(String(255), nullable=False),
+        description="Bcrypt hash of user's password"
+    )
+    name: Optional[str] = Field(
+        default=None,
+        sa_column=Column(String(255)),
+        description="User's display name"
+    )
+    onboarding_completed: bool = Field(
+        default=False,
+        description="Whether user has completed initial onboarding flow"
+    )
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
