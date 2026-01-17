@@ -1,10 +1,11 @@
 """
 Cashback Optimization Engine - Analytics Service
+Sprint 1: Updated to work with UserCard and CardProduct architecture
 Provides aggregate insights and recommendations using efficient SQL queries
 """
 
 from sqlmodel import Session, select, func
-from app.models import Transaction, Card, PlaidItem
+from app.models import Transaction, UserCard, CardProduct, PlaidItem
 from typing import Dict, List, Any, Optional
 from decimal import Decimal
 from uuid import UUID
@@ -21,6 +22,8 @@ class AnalyticsService:
         """
         Calculate aggregate spending and opportunity cost metrics for a user.
         
+        Sprint 1: Updated to use UserCard instead of Card.
+        
         Args:
             session: Database session
             user_id: UUID of the user
@@ -36,8 +39,8 @@ class AnalyticsService:
                 func.sum(Transaction.actual_cashback).label("total_earned"),
                 func.count(Transaction.id).label("transaction_count")
             )
-            .join(Card, Transaction.card_id == Card.id)
-            .join(PlaidItem, Card.plaid_item_id == PlaidItem.id)
+            .join(UserCard, Transaction.user_card_id == UserCard.id)
+            .join(PlaidItem, UserCard.plaid_item_id == PlaidItem.id)
             .where(PlaidItem.user_id == UUID(user_id))
             .where(Transaction.is_analyzable == True)
         )
@@ -60,6 +63,8 @@ class AnalyticsService:
         """
         Group transactions by internal_bucket and calculate opportunity cost per category.
         
+        Sprint 1: Updated to use UserCard instead of Card.
+        
         Args:
             session: Database session
             user_id: UUID of the user
@@ -79,8 +84,8 @@ class AnalyticsService:
                 func.sum(Transaction.actual_cashback).label("actual_cashback"),
                 func.sum(Transaction.best_possible_cashback).label("potential_cashback")
             )
-            .join(Card, Transaction.card_id == Card.id)
-            .join(PlaidItem, Card.plaid_item_id == PlaidItem.id)
+            .join(UserCard, Transaction.user_card_id == UserCard.id)
+            .join(PlaidItem, UserCard.plaid_item_id == PlaidItem.id)
             .where(PlaidItem.user_id == UUID(user_id))
             .where(Transaction.is_analyzable == True)
             .group_by(Transaction.internal_bucket)
@@ -107,6 +112,8 @@ class AnalyticsService:
         """
         Identify the card that would save the most money if the user switched to it.
         
+        Sprint 1: Now joins through UserCard → CardProduct to get card details.
+        
         Args:
             session: Database session
             user_id: UUID of the user
@@ -119,18 +126,19 @@ class AnalyticsService:
         
         query = (
             select(
-                Card.provider,
-                Card.card_name,
+                CardProduct.provider,
+                CardProduct.card_name,
                 func.count(Transaction.id).label("times_recommended"),
                 total_potential_savings,
                 func.avg(Transaction.lost_savings).label("avg_savings_per_transaction")
             )
-            .join(Card, Transaction.best_card_id == Card.id)
-            .join(PlaidItem, Card.plaid_item_id == PlaidItem.id)
+            .join(UserCard, Transaction.best_user_card_id == UserCard.id)
+            .join(CardProduct, UserCard.card_product_id == CardProduct.id)
+            .join(PlaidItem, UserCard.plaid_item_id == PlaidItem.id)
             .where(PlaidItem.user_id == UUID(user_id))
             .where(Transaction.is_analyzable == True)
-            .where(Transaction.best_card_id.isnot(None))
-            .group_by(Card.id, Card.provider, Card.card_name)
+            .where(Transaction.best_user_card_id.isnot(None))
+            .group_by(CardProduct.id, CardProduct.provider, CardProduct.card_name)
             .order_by(total_potential_savings.desc())
             .limit(1)
         )
@@ -153,6 +161,8 @@ class AnalyticsService:
         """
         Compare all cards and show how much each could save if used optimally.
         
+        Sprint 1: Now joins through UserCard → CardProduct.
+        
         Args:
             session: Database session
             user_id: UUID of the user
@@ -165,17 +175,18 @@ class AnalyticsService:
         
         query = (
             select(
-                Card.provider,
-                Card.card_name,
+                CardProduct.provider,
+                CardProduct.card_name,
                 func.count(Transaction.id).label("optimal_transaction_count"),
                 potential_savings
             )
-            .join(Card, Transaction.best_card_id == Card.id)
-            .join(PlaidItem, Card.plaid_item_id == PlaidItem.id)
+            .join(UserCard, Transaction.best_user_card_id == UserCard.id)
+            .join(CardProduct, UserCard.card_product_id == CardProduct.id)
+            .join(PlaidItem, UserCard.plaid_item_id == PlaidItem.id)
             .where(PlaidItem.user_id == UUID(user_id))
             .where(Transaction.is_analyzable == True)
-            .where(Transaction.best_card_id.isnot(None))
-            .group_by(Card.id, Card.provider, Card.card_name)
+            .where(Transaction.best_user_card_id.isnot(None))
+            .group_by(CardProduct.id, CardProduct.provider, CardProduct.card_name)
             .order_by(potential_savings.desc())
         )
         
@@ -200,6 +211,8 @@ class AnalyticsService:
         Returns transaction details including merchant, category, amounts, and 
         the recommended optimal card for each transaction.
         
+        Sprint 1: Now joins through UserCard → CardProduct for card details.
+        
         Args:
             session: Database session
             user_id: UUID of the user
@@ -207,13 +220,13 @@ class AnalyticsService:
         Returns:
             List of dictionaries with transaction details and recommendations
         """
-        # Join pattern: Transaction -> best_card (Card) -> PlaidItem (for user filter)
-        # AND Transaction -> card_used (Card) -> PlaidItem (for user filter)
-        # We need to alias the cards to differentiate
+        # Join pattern: Transaction -> best_user_card (UserCard) -> CardProduct
+        # AND Transaction -> used_user_card (UserCard) -> PlaidItem (for user filter)
+        # We need to alias the UserCards to differentiate
         from sqlalchemy.orm import aliased
         
-        BestCard = aliased(Card)
-        UsedCard = aliased(Card)
+        BestUserCard = aliased(UserCard)
+        UsedUserCard = aliased(UserCard)
         
         query = (
             select(
@@ -224,12 +237,13 @@ class AnalyticsService:
                 Transaction.actual_cashback,
                 Transaction.best_possible_cashback,
                 Transaction.lost_savings,
-                BestCard.provider,
-                BestCard.card_name
+                CardProduct.provider,
+                CardProduct.card_name
             )
-            .join(BestCard, Transaction.best_card_id == BestCard.id)
-            .join(UsedCard, Transaction.card_id == UsedCard.id)
-            .join(PlaidItem, UsedCard.plaid_item_id == PlaidItem.id)
+            .join(BestUserCard, Transaction.best_user_card_id == BestUserCard.id)
+            .join(CardProduct, BestUserCard.card_product_id == CardProduct.id)
+            .join(UsedUserCard, Transaction.user_card_id == UsedUserCard.id)
+            .join(PlaidItem, UsedUserCard.plaid_item_id == PlaidItem.id)
             .where(PlaidItem.user_id == UUID(user_id))
             .where(Transaction.is_analyzable == True)
             .where(Transaction.lost_savings > 0)

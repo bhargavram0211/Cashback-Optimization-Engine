@@ -1,0 +1,14 @@
+# Capital One Venture X Card Definition
+# Last Updated: 2026-01-16
+
+provider: Capital One
+card_name: Venture X
+base_reward_rate: 2.0
+is_available_in_market: true
+image_url: https://ecm.capitalone.com/WCM/card/products/venture-x-card-art.png
+benefits_url: https://www.capitalone.com/credit-cards/venture-x/
+
+# Reward structure: Flat 2x miles on all purchases
+rewards:
+  - bucket: GENERAL
+    multiplier: 2.0

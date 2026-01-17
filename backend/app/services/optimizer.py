@@ -1,12 +1,12 @@
 """
-Phase 2.2: Cashback Optimization Engine
+Sprint 1: Cashback Optimization Engine (Refactored)
 Calculates optimal card usage and opportunity cost for each transaction.
 
-Core Logic:
-- For each transaction, determine which card would have yielded the highest cashback
-- Calculate actual_cashback (what was earned with the card used)
-- Calculate best_possible_cashback (what could have been earned with optimal card)
-- Calculate lost_savings (opportunity cost)
+Sprint 1 Changes:
+- Works with UserCard (user instances) and CardProduct (master library)
+- Only calculates rewards for identified cards (where card_product_id is set)
+- Scans user's identified cards for "best_user_card"
+- Scans entire CardProduct library for "market_winner"
 """
 
 from decimal import Decimal
@@ -14,90 +14,182 @@ from typing import Dict, Tuple, Optional
 from uuid import UUID
 
 from sqlmodel import Session, select
-from app.models import Card, RewardRule, Transaction
+from app.models import UserCard, CardProduct, RewardRule, Transaction
 
 
-def get_card_multiplier(
-    session: Session, 
-    card_id: UUID, 
+def get_user_card_multiplier(
+    session: Session,
+    user_card_id: UUID,
     bucket: str
 ) -> Decimal:
     """
-    Get the reward multiplier for a specific card and bucket.
+    Get the reward multiplier for a user's card and bucket.
+    
+    Sprint 1: Now looks up UserCard → CardProduct → RewardRule
     
     Logic:
-    1. Check if card has a specific rule for this bucket
-    2. If not, use the card's base_reward_rate
+    1. Get UserCard
+    2. Check if identified (has card_product_id)
+    3. Get CardProduct
+    4. Check for specific RewardRule, else use base rate
     
     Args:
         session: Database session
-        card_id: UUID of the card
+        user_card_id: UUID of the UserCard
         bucket: Internal reward bucket (DINING, GROCERY, etc.)
     
     Returns:
         Decimal multiplier (e.g., 3.0 for 3x, 1.5 for 1.5x)
     """
-    # Try to find a specific rule for this bucket
-    rule_statement = select(RewardRule).where(
-        RewardRule.card_id == card_id,
-        RewardRule.bucket == bucket
-    )
-    rule = session.exec(rule_statement).first()
+    # Get UserCard
+    user_card = session.exec(
+        select(UserCard).where(UserCard.id == user_card_id)
+    ).first()
+    
+    if not user_card or not user_card.card_product_id:
+        # Unidentified card, default to 1%
+        return Decimal("1.0")
+    
+    # Get CardProduct
+    card_product = session.exec(
+        select(CardProduct).where(CardProduct.id == user_card.card_product_id)
+    ).first()
+    
+    if not card_product:
+        return Decimal("1.0")
+    
+    # Check for specific reward rule
+    rule = session.exec(
+        select(RewardRule).where(
+            RewardRule.card_product_id == card_product.id,
+            RewardRule.bucket == bucket
+        )
+    ).first()
     
     if rule:
         return rule.multiplier
     
-    # No specific rule, use card's base rate
-    card_statement = select(Card).where(Card.id == card_id)
-    card = session.exec(card_statement).first()
-    
-    if card:
-        return card.base_reward_rate
-    
-    # Fallback (shouldn't happen if DB integrity is maintained)
-    return Decimal("1.0")
+    return card_product.base_reward_rate
 
 
-def find_best_card_for_bucket(
+def get_card_product_multiplier(
     session: Session,
-    bucket: str,
-    exclude_card_id: Optional[UUID] = None,
-    wallet_only: bool = False
-) -> Tuple[UUID, Decimal]:
+    card_product_id: UUID,
+    bucket: str
+) -> Decimal:
     """
-    Find the card with the highest multiplier for a given bucket.
+    Get the reward multiplier for a CardProduct and bucket.
     
-    Phase 3.2: Now supports filtering by wallet_only flag.
+    Sprint 1: Used for market analysis (scanning all CardProducts).
+    
+    Args:
+        session: Database session
+        card_product_id: UUID of the CardProduct
+        bucket: Internal reward bucket
+    
+    Returns:
+        Decimal multiplier
+    """
+    # Get CardProduct
+    card_product = session.exec(
+        select(CardProduct).where(CardProduct.id == card_product_id)
+    ).first()
+    
+    if not card_product:
+        return Decimal("1.0")
+    
+    # Check for specific reward rule
+    rule = session.exec(
+        select(RewardRule).where(
+            RewardRule.card_product_id == card_product.id,
+            RewardRule.bucket == bucket
+        )
+    ).first()
+    
+    if rule:
+        return rule.multiplier
+    
+    return card_product.base_reward_rate
+
+
+def find_best_user_card_for_bucket(
+    session: Session,
+    user_id: UUID,
+    bucket: str,
+    exclude_user_card_id: Optional[UUID] = None
+) -> Tuple[Optional[UUID], Decimal]:
+    """
+    Find the best UserCard from user's identified cards for a given bucket.
+    
+    Sprint 1: Scans only the user's identified UserCards.
+    Only considers cards where card_product_id is set.
+    
+    Args:
+        session: Database session
+        user_id: UUID of the user
+        bucket: Internal reward bucket
+        exclude_user_card_id: Optional UserCard to exclude from search
+    
+    Returns:
+        Tuple of (best_user_card_id, best_multiplier)
+    """
+    # Get user's identified cards
+    user_cards_statement = select(UserCard).where(
+        UserCard.user_id == user_id,
+        UserCard.card_product_id != None,  # Only identified cards
+        UserCard.is_active == True
+    )
+    user_cards = session.exec(user_cards_statement).all()
+    
+    best_user_card_id = None
+    best_multiplier = Decimal("0.0")
+    
+    for user_card in user_cards:
+        if exclude_user_card_id and user_card.id == exclude_user_card_id:
+            continue
+        
+        multiplier = get_user_card_multiplier(session, user_card.id, bucket)
+        
+        if multiplier > best_multiplier:
+            best_multiplier = multiplier
+            best_user_card_id = user_card.id
+    
+    return best_user_card_id, best_multiplier
+
+
+def find_best_card_product_for_bucket(
+    session: Session,
+    bucket: str
+) -> Tuple[Optional[UUID], Decimal]:
+    """
+    Find the best CardProduct from entire library for a given bucket.
+    
+    Sprint 1: Market analysis - scans all available CardProducts.
     
     Args:
         session: Database session
         bucket: Internal reward bucket
-        exclude_card_id: Optional card to exclude from search
-        wallet_only: If True, only consider cards with is_in_user_wallet=True
     
     Returns:
-        Tuple of (best_card_id, best_multiplier)
+        Tuple of (best_card_product_id, best_multiplier)
     """
-    # Get all cards (optionally filtered by wallet)
-    cards_statement = select(Card)
-    if wallet_only:
-        cards_statement = cards_statement.where(Card.is_in_user_wallet == True)
-    cards = session.exec(cards_statement).all()
+    # Get all available card products
+    products_statement = select(CardProduct).where(
+        CardProduct.is_available_in_market == True
+    )
+    products = session.exec(products_statement).all()
     
-    best_card_id = None
+    best_product_id = None
     best_multiplier = Decimal("0.0")
     
-    for card in cards:
-        if exclude_card_id and card.id == exclude_card_id:
-            continue
-        
-        multiplier = get_card_multiplier(session, card.id, bucket)
+    for product in products:
+        multiplier = get_card_product_multiplier(session, product.id, bucket)
         
         if multiplier > best_multiplier:
             best_multiplier = multiplier
-            best_card_id = card.id
+            best_product_id = product.id
     
-    return best_card_id, best_multiplier
+    return best_product_id, best_multiplier
 
 
 def calculate_cashback(amount: Decimal, multiplier: Decimal) -> Decimal:
@@ -123,11 +215,15 @@ def optimize_transaction(session: Session, transaction: Transaction) -> Dict[str
     """
     Optimize a single transaction.
     
+    Sprint 1: Now works with UserCard and CardProduct architecture.
+    
     Calculates:
-    - actual_cashback: What was earned with the card used
-    - best_card_id: Which card would have been optimal
-    - best_possible_cashback: What could have been earned
-    - lost_savings: Opportunity cost
+    - actual_cashback: What was earned with the UserCard used
+    - best_user_card_id: Which identified UserCard would have been optimal
+    - best_possible_cashback: What could have been earned with best identified card
+    - lost_savings: Opportunity cost (from identified cards)
+    - market_winner_product_id: Which CardProduct from library is best
+    - market_winner_cashback: What could be earned if user had that card
     
     Args:
         session: Database session
@@ -150,47 +246,57 @@ def optimize_transaction(session: Session, transaction: Transaction) -> Dict[str
             "reason": "no_bucket"
         }
     
-    # Get current card's multiplier
-    current_multiplier = get_card_multiplier(
-        session, 
-        transaction.card_id, 
+    # Get the UserCard that was used
+    user_card = session.exec(
+        select(UserCard).where(UserCard.id == transaction.user_card_id)
+    ).first()
+    
+    if not user_card:
+        return {
+            "optimized": False,
+            "reason": "user_card_not_found"
+        }
+    
+    # Get current UserCard's multiplier
+    current_multiplier = get_user_card_multiplier(
+        session,
+        transaction.user_card_id,
         transaction.internal_bucket
     )
     
     # Calculate what was actually earned
     actual_cashback = calculate_cashback(transaction.amount, current_multiplier)
     
-    # Phase 3.2 - PASS 1: Find the best WALLET card for lost_savings calculation
-    # This only considers cards the user owns (is_in_user_wallet=True)
-    best_card_id, best_multiplier = find_best_card_for_bucket(
+    # PASS 1: Find the best IDENTIFIED UserCard for lost_savings calculation
+    # This only considers the user's identified cards
+    best_user_card_id, best_multiplier = find_best_user_card_for_bucket(
         session,
-        transaction.internal_bucket,
-        wallet_only=True
+        user_card.user_id,
+        transaction.internal_bucket
     )
     
-    # Calculate what could have been earned with wallet cards
+    # Calculate what could have been earned with best identified card
     best_possible_cashback = calculate_cashback(transaction.amount, best_multiplier)
     
-    # Calculate opportunity cost (wallet-based)
+    # Calculate opportunity cost (from identified cards)
     lost_savings = best_possible_cashback - actual_cashback
     
-    # Phase 3.2 - PASS 2: Find the MARKET WINNER from ALL cards
-    # This scans all 10 cards (4 wallet + 6 market)
-    market_winner_card_id, market_winner_multiplier = find_best_card_for_bucket(
+    # PASS 2: Find the MARKET WINNER from entire CardProduct library
+    # This scans all available CardProducts for market comparison
+    market_winner_product_id, market_winner_multiplier = find_best_card_product_for_bucket(
         session,
-        transaction.internal_bucket,
-        wallet_only=False  # Scan ALL cards
+        transaction.internal_bucket
     )
     
     # Calculate what could have been earned with the absolute best market card
     market_winner_cashback = calculate_cashback(transaction.amount, market_winner_multiplier)
     
-    # Update transaction with BOTH wallet and market results
+    # Update transaction with BOTH user wallet and market results
     transaction.actual_cashback = actual_cashback
-    transaction.best_card_id = best_card_id
+    transaction.best_user_card_id = best_user_card_id
     transaction.best_possible_cashback = best_possible_cashback
     transaction.lost_savings = lost_savings
-    transaction.market_winner_card_id = market_winner_card_id
+    transaction.market_winner_product_id = market_winner_product_id
     transaction.market_winner_cashback = market_winner_cashback
     
     return {

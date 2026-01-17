@@ -2,8 +2,9 @@
 Cashback Optimization Engine - Data Models
 Sub-Phase 1.2: SQLModel table definitions
 Phase 2.1: Card & Rules Registry
+Sprint 1: CardProduct + UserCard Architecture
 
-Reference: SRS Section 3.2 - The 4-Table Model
+Reference: SRS Section 3.2 - Refactored to separate card products from user instances
 """
 
 from datetime import datetime
@@ -44,75 +45,116 @@ class PlaidItem(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
-class Card(SQLModel, table=True):
+class CardProduct(SQLModel, table=True):
     """
-    Individual credit card accounts.
-    Each card is linked to a PlaidItem and has a reward profile.
+    Master library of credit card products.
+    Defines card types and their reward structures.
     
-    Phase 2.1: Added provider, card_name, and base_reward_rate for reward calculation.
+    Sprint 1: This is the shared library that all users reference.
+    Examples: Chase Freedom Unlimited, Amex Gold, etc.
     """
-    __tablename__ = "cards"
-
+    __tablename__ = "card_products"
+    
     id: UUID = Field(default_factory=uuid4, primary_key=True)
-    plaid_item_id: UUID = Field(foreign_key="plaid_items.id", nullable=False, index=True)
-    plaid_account_id: str = Field(sa_column=Column(String(255), unique=True, nullable=False, index=True))
-    official_name: Optional[str] = Field(default=None, sa_column=Column(String(500)))
-    mask: Optional[str] = Field(default=None, sa_column=Column(String(10)))
-    
-    # Card identification (Phase 2.1)
-    provider: Optional[str] = Field(
-        default=None,
-        sa_column=Column(String(100)),
+    provider: str = Field(
+        sa_column=Column(String(100), nullable=False),
         description="Card issuer (e.g., 'Chase', 'American Express', 'Capital One')"
     )
-    card_name: Optional[str] = Field(
-        default=None,
-        sa_column=Column(String(200)),
-        description="Card product name (e.g., 'Sapphire Reserve', 'Gold Card')"
-    )
-    
-    # Reward configuration
-    reward_slug: Optional[str] = Field(
-        default=None,
-        sa_column=Column(String(100)),
-        description="Identifier for reward rules (e.g., 'chase_sapphire', 'amex_gold')"
+    card_name: str = Field(
+        sa_column=Column(String(200), nullable=False),
+        description="Card product name (e.g., 'Freedom Unlimited', 'Gold Card')"
     )
     base_reward_rate: Decimal = Field(
         default=Decimal("1.0"),
         sa_column=Column(DECIMAL(5, 2), nullable=False),
         description="Base cashback rate (e.g., 1.0 for 1%, 1.5 for 1.5%)"
     )
-    
-    # Phase 3.2: Market Library
-    is_in_user_wallet: bool = Field(
-        default=False,
-        description="True if user owns this card, False if market card"
-    )
     image_url: Optional[str] = Field(
         default=None,
         sa_column=Column(String(500)),
         description="URL to card image"
     )
+    benefits_url: Optional[str] = Field(
+        default=None,
+        sa_column=Column(String(500)),
+        description="URL to card benefits page"
+    )
+    is_available_in_market: bool = Field(
+        default=True,
+        description="If False, card is discontinued or not available for new applications"
+    )
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class UserCard(SQLModel, table=True):
+    """
+    User's actual credit card instance.
+    Links Plaid account to a CardProduct for reward calculation.
+    
+    Sprint 1: Separated from CardProduct. Each user has their own UserCard instances
+    that optionally link to CardProducts in the shared library.
+    """
+    __tablename__ = "user_cards"
+    
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    user_id: UUID = Field(foreign_key="users.id", nullable=False, index=True)
+    card_product_id: Optional[UUID] = Field(
+        default=None,
+        foreign_key="card_products.id",
+        description="Identified card product (NULL until user identifies this card)"
+    )
+    
+    # Plaid linkage
+    plaid_item_id: UUID = Field(foreign_key="plaid_items.id", nullable=False, index=True)
+    plaid_account_id: str = Field(
+        sa_column=Column(String(255), unique=True, nullable=False, index=True),
+        description="Plaid's account ID - unique per credit card account"
+    )
+    official_name: Optional[str] = Field(
+        default=None,
+        sa_column=Column(String(500)),
+        description="Official name from Plaid (e.g., 'Chase Credit Card')"
+    )
+    mask: Optional[str] = Field(
+        default=None,
+        sa_column=Column(String(10)),
+        description="Last 4 digits of card (e.g., '1234')"
+    )
+    
+    # Status
+    is_active: bool = Field(
+        default=True,
+        description="False if card is closed or inactive"
+    )
+    identified_at: Optional[datetime] = Field(
+        default=None,
+        description="When user identified this card as a specific CardProduct"
+    )
     
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class RewardRule(SQLModel, table=True):
     """
-    Reward multipliers for specific spending categories per card.
+    Reward multipliers for specific spending categories per card product.
     
-    Phase 2.1: Defines category-specific reward rates (e.g., 3x on dining, 2x on gas).
-    Each card can have multiple reward rules, one per bucket.
+    Sprint 1: Now links to CardProduct instead of individual user cards.
+    Each CardProduct can have multiple reward rules, one per bucket.
     
     Example:
-    - Chase Sapphire Reserve: 3x on TRAVEL, 3x on DINING
-    - Amex Gold: 4x on DINING, 4x on GROCERY
-    - Citi Double Cash: 2x on GENERAL (all purchases)
+    - Chase Freedom Unlimited (CardProduct): 3x on DINING, 3x on DRUGSTORE, 1.5x on GENERAL
+    - Amex Gold (CardProduct): 4x on DINING, 4x on GROCERY, 3x on TRAVEL
     """
     __tablename__ = "reward_rules"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
-    card_id: UUID = Field(foreign_key="cards.id", nullable=False, index=True)
+    card_product_id: UUID = Field(
+        foreign_key="card_products.id",
+        nullable=False,
+        index=True,
+        description="Links to CardProduct in the master library"
+    )
     
     # Reward bucket (must match internal_bucket values)
     bucket: str = Field(
@@ -134,6 +176,8 @@ class Transaction(SQLModel, table=True):
     The financial ledger.
     Stores all credit card transactions with categorization and analyzability flags.
     
+    Sprint 1: Now references UserCard instead of Card.
+    
     Key Fields:
     - plaid_transaction_id: Unique identifier from Plaid (natural key for idempotent upserts)
     - is_analyzable: False for refunds, payments, transfers (filtered per SRS Section 2.2)
@@ -142,7 +186,12 @@ class Transaction(SQLModel, table=True):
     __tablename__ = "transactions"
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
-    card_id: UUID = Field(foreign_key="cards.id", nullable=False, index=True)
+    user_card_id: UUID = Field(
+        foreign_key="user_cards.id",
+        nullable=False,
+        index=True,
+        description="Which UserCard was used for this transaction"
+    )
     
     # Plaid natural key for idempotency (UNIQUE CONSTRAINT per SRS requirements)
     plaid_transaction_id: str = Field(
@@ -177,38 +226,38 @@ class Transaction(SQLModel, table=True):
         description="False for refunds, payments, transfers per SRS Section 2.2"
     )
     
-    # Optimization results (to be populated by optimization engine - Phase 2.1+)
+    # Optimization results (to be populated by optimization engine)
     actual_cashback: Optional[Decimal] = Field(
         default=None,
         sa_column=Column(DECIMAL(10, 2)),
         description="Cashback earned on the card used"
     )
-    best_card_id: Optional[UUID] = Field(
+    best_user_card_id: Optional[UUID] = Field(
         default=None,
-        foreign_key="cards.id",
-        description="Best card from user's wallet (is_in_user_wallet=True)"
+        foreign_key="user_cards.id",
+        description="Best UserCard from user's identified cards"
     )
     best_possible_cashback: Optional[Decimal] = Field(
         default=None,
         sa_column=Column(DECIMAL(10, 2)),
-        description="Maximum possible cashback from best wallet card"
+        description="Maximum possible cashback from best identified user card"
     )
     lost_savings: Decimal = Field(
         default=Decimal("0.0"),
         sa_column=Column(DECIMAL(10, 2), nullable=False),
-        description="Opportunity cost from wallet cards (best_possible - actual)"
+        description="Opportunity cost from identified cards (best_possible - actual)"
     )
     
-    # Phase 3.2: Market Library - Best card from entire market
-    market_winner_card_id: Optional[UUID] = Field(
+    # Market analysis - Best card product from entire library
+    market_winner_product_id: Optional[UUID] = Field(
         default=None,
-        foreign_key="cards.id",
-        description="Best card from entire market (all 10 cards including market cards)"
+        foreign_key="card_products.id",
+        description="Best CardProduct from entire market library"
     )
     market_winner_cashback: Optional[Decimal] = Field(
         default=None,
         sa_column=Column(DECIMAL(10, 2)),
-        description="Maximum possible cashback from market winner card"
+        description="Maximum possible cashback from market winner CardProduct"
     )
     
     # Audit fields
@@ -220,7 +269,8 @@ class Transaction(SQLModel, table=True):
 # This prevents RecursionError in Pydantic v2's _repr logic
 User.model_rebuild()
 PlaidItem.model_rebuild()
-Card.model_rebuild()
+CardProduct.model_rebuild()
+UserCard.model_rebuild()
 RewardRule.model_rebuild()
 Transaction.model_rebuild()
 

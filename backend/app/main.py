@@ -10,7 +10,8 @@ from typing import Dict, Optional
 from pydantic import BaseModel
 
 # Import models to register them with SQLModel metadata
-from app.models import User, PlaidItem, Card, RewardRule, Transaction
+# Sprint 1: Updated to use CardProduct and UserCard
+from app.models import User, PlaidItem, CardProduct, UserCard, RewardRule, Transaction
 
 # Import category mapper
 from app.logic import get_mapper, RewardBucket
@@ -222,6 +223,7 @@ async def startup_event():
     """
     Runs on application startup.
     Creates all database tables if they don't exist.
+    Imports card products from YAML files.
     """
     print("🚀 Cashback Optimization Engine - Backend Starting...")
     print(f"📊 Database URL: {DATABASE_URL.split('@')[1] if '@' in DATABASE_URL else 'Not Set'}")
@@ -230,7 +232,27 @@ async def startup_event():
     print("📦 Creating database tables...")
     SQLModel.metadata.create_all(engine)
     print("✅ Database tables ready!")
-    print(f"   - Tables: users, plaid_items, cards, reward_rules, transactions")
+    print(f"   - Tables: users, plaid_items, card_products, user_cards, reward_rules, transactions")
+    
+    # Import card products from YAML files
+    print("📥 Importing card library...")
+    try:
+        from pathlib import Path
+        import sys
+        scripts_dir = Path(__file__).parent.parent / "scripts"
+        sys.path.insert(0, str(scripts_dir))
+        
+        # Import and run the card importer
+        import import_cards
+        stats = import_cards.import_all_cards(update_existing=False, verbose=False)
+        
+        if stats.get("failed", 0) == 0:
+            print(f"✅ Card library ready: {stats['success']} cards imported, {stats['skipped']} skipped")
+        else:
+            print(f"⚠️  Card import completed with {stats['failed']} errors")
+    except Exception as e:
+        print(f"⚠️  Card import failed: {e}")
+        print("   Continuing with startup...")
     
     # Initialize category mapper
     print("🗺️  Initializing category mapper...")

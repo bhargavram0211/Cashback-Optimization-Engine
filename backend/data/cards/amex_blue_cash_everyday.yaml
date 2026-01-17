@@ -1,0 +1,20 @@
+# American Express Blue Cash Everyday Card Definition
+# Last Updated: 2026-01-16
+
+provider: American Express
+card_name: Blue Cash Everyday
+base_reward_rate: 1.0
+is_available_in_market: true
+image_url: https://icm.aexp-static.com/Internet/Acquisition/US_en/AppContent/OneSite/category/cardarts/blue-cash-everyday.png
+benefits_url: https://www.americanexpress.com/us/credit-cards/card/blue-cash-everyday/
+
+# Reward structure: 3% online shopping, gas, & grocery
+rewards:
+  - bucket: ONLINE_SHOPPING
+    multiplier: 3.0
+  - bucket: GAS
+    multiplier: 3.0
+  - bucket: GROCERY
+    multiplier: 3.0
+  - bucket: GENERAL
+    multiplier: 1.0

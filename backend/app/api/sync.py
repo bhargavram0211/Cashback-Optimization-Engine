@@ -21,7 +21,7 @@ from plaid.model.account_subtype import AccountSubtype
 
 from app.core import get_plaid_client_instance
 from app.core.database import get_session
-from app.models import PlaidItem, Card, Transaction
+from app.models import PlaidItem, UserCard, Transaction
 from app.logic import get_mapper
 
 router = APIRouter(prefix="/sync", tags=["sync"])
@@ -190,26 +190,29 @@ async def sync_transactions(
             cursor_updated=False
         )
     
-    # Ensure cards exist in database for each credit account
-    card_map = {}  # account_id -> Card
+    # Ensure user cards exist in database for each credit account
+    # Sprint 1: Creating UserCard instances (unidentified until user identifies them)
+    card_map = {}  # account_id -> UserCard
     for account_id, official_name in credit_accounts.items():
-        # Check if card exists
-        card_statement = select(Card).where(Card.plaid_account_id == account_id)
-        card = session.exec(card_statement).first()
+        # Check if user_card exists
+        user_card_statement = select(UserCard).where(UserCard.plaid_account_id == account_id)
+        user_card = session.exec(user_card_statement).first()
         
-        if not card:
-            # Create new card
-            card = Card(
+        if not user_card:
+            # Create new UserCard (unidentified)
+            user_card = UserCard(
+                user_id=plaid_item.user_id,  # Get from PlaidItem
+                card_product_id=None,  # User hasn't identified yet
                 plaid_item_id=plaid_item.id,
                 plaid_account_id=account_id,
                 official_name=official_name,
                 mask=None,  # Could extract from account details if needed
-                reward_slug=None  # To be set manually by user later
+                is_active=True
             )
-            session.add(card)
-            session.flush()  # Get the card ID
+            session.add(user_card)
+            session.flush()  # Get the user_card ID
         
-        card_map[account_id] = card
+        card_map[account_id] = user_card
     
     # Sync transactions using cursor
     cursor = plaid_item.last_cursor
@@ -270,7 +273,7 @@ async def sync_transactions(
                     txn_date = datetime.strptime(txn_date, '%Y-%m-%d').date()
                 
                 txn_data = {
-                    "card_id": card.id,
+                    "user_card_id": card.id,  # Sprint 1: Changed from card_id to user_card_id
                     "plaid_transaction_id": txn['transaction_id'],
                     "amount": amount,
                     "date": txn_date,

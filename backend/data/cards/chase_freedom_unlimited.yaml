@@ -1,0 +1,18 @@
+# Chase Freedom Unlimited Card Definition
+# Last Updated: 2026-01-16
+
+provider: Chase
+card_name: Freedom Unlimited
+base_reward_rate: 1.5
+is_available_in_market: true
+image_url: https://www.chase.com/content/dam/chase-ux/heroimage/primary/personal/credit-cards/freedom/freedom-unlimited-credit-card.png
+benefits_url: https://creditcards.chase.com/cash-back-credit-cards/freedom/unlimited
+
+# Reward structure: category buckets and their multipliers
+rewards:
+  - bucket: DINING
+    multiplier: 3.0
+  - bucket: DRUGSTORE
+    multiplier: 3.0
+  - bucket: GENERAL
+    multiplier: 1.5

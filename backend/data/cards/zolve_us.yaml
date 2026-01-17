@@ -1,0 +1,14 @@
+# Zolve US Card Definition
+# Last Updated: 2026-01-16
+
+provider: Zolve
+card_name: US
+base_reward_rate: 1.0
+is_available_in_market: true
+image_url: https://www.zolve.com/assets/images/zolve-card.png
+benefits_url: https://www.zolve.com/credit-card
+
+# Reward structure: Flat 1% cashback on all purchases
+rewards:
+  - bucket: GENERAL
+    multiplier: 1.0
