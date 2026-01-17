@@ -52,3 +52,107 @@ export interface LoginFormData {
   email: string;
   password: string;
 }
+
+// Report types
+export interface CategoryBreakdown {
+  category: string;
+  transaction_count: number;
+  total_spent: number;
+  lost_savings: number;
+  actual_cashback: number;
+  potential_cashback: number;
+}
+
+export interface RecommendedCard {
+  provider: string;
+  card_name: string;
+  times_recommended: number;
+  total_potential_savings: number;
+  avg_savings_per_transaction: number;
+}
+
+export interface SavingsSummary {
+  total_spent: number;
+  total_lost_savings: number;
+  total_earned: number;
+  transaction_count: number;
+  total_potential: number;
+}
+
+export interface SavingsReport {
+  summary: SavingsSummary;
+  category_breakdown: CategoryBreakdown[];
+  top_recommendation: RecommendedCard | null;
+}
+
+// Card types
+export interface RewardRule {
+  bucket: string;
+  multiplier: number;
+}
+
+export interface CardProduct {
+  id: string;
+  provider: string;
+  card_name: string;
+  base_reward_rate: number;
+  image_url: string | null;
+  benefits_url: string | null;
+  reward_rules: RewardRule[];
+}
+
+export interface UnidentifiedCard {
+  id: string;
+  plaid_account_id: string;
+  official_name: string;
+  mask: string;
+  created_at: string;
+}
+
+export interface IdentifyCardResponse {
+  status: string;
+  user_card_id: string;
+  card_product: string;
+  message: string;
+}
+
+// Plaid types
+export interface ConnectSandboxResponse {
+  plaid_item_id: string;
+  institution_name: string;
+  transactions_synced: number;
+  cards_found: number;
+  message: string;
+}
+
+export interface PlaidItemResponse {
+  id: string;
+  user_id: string;
+  institution_id: string | null;
+  last_cursor: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SyncResponse {
+  item_id: string;
+  transactions_added: number;
+  transactions_updated: number;
+  transactions_removed: number;
+  accounts_synced: number;
+  cursor_updated: boolean;
+}
+
+export interface OptimizeResponse {
+  status: string;
+  total_transactions: number;
+  optimized: number;
+  skipped?: number;
+  skipped_non_analyzable?: number;
+  skipped_no_bucket?: number;
+  total_actual_cashback: number;
+  total_potential_cashback: number;
+  total_lost_savings: number;
+  average_lost_per_transaction?: number;
+  message?: string;
+}

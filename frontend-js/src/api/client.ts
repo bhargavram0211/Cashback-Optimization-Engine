@@ -4,7 +4,15 @@ import type {
   LoginRequest, 
   AuthResponse, 
   UserInfoResponse,
-  ApiError 
+  ApiError,
+  SavingsReport,
+  CardProduct,
+  UnidentifiedCard,
+  IdentifyCardResponse,
+  ConnectSandboxResponse,
+  OptimizeResponse,
+  PlaidItemResponse,
+  SyncResponse
 } from '../types';
 
 const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
@@ -57,6 +65,71 @@ export const authAPI = {
 
   getMe: async (): Promise<UserInfoResponse> => {
     const response = await apiClient.get<UserInfoResponse>('/auth/me');
+    return response.data;
+  },
+};
+
+// Reports API methods
+export const reportsAPI = {
+  getSavingsReport: async (userId: string): Promise<SavingsReport> => {
+    const response = await apiClient.get<SavingsReport>(`/reports/savings/${userId}`);
+    return response.data;
+  },
+};
+
+// Cards API methods
+export const cardsAPI = {
+  getCardProducts: async (): Promise<CardProduct[]> => {
+    const response = await apiClient.get<CardProduct[]>('/cards/card-products');
+    return response.data;
+  },
+
+  getUnidentifiedCards: async (userId: string): Promise<UnidentifiedCard[]> => {
+    const response = await apiClient.get<UnidentifiedCard[]>(
+      `/cards/user-cards/unidentified?user_id=${userId}`
+    );
+    return response.data;
+  },
+
+  identifyCard: async (
+    userCardId: string,
+    cardProductId: string
+  ): Promise<IdentifyCardResponse> => {
+    const response = await apiClient.post<IdentifyCardResponse>(
+      `/cards/user-cards/${userCardId}/identify?card_product_id=${cardProductId}`
+    );
+    return response.data;
+  },
+};
+
+// Plaid API methods
+export const plaidAPI = {
+  connectSandbox: async (): Promise<ConnectSandboxResponse> => {
+    const response = await apiClient.post<ConnectSandboxResponse>('/plaid/connect-sandbox');
+    return response.data;
+  },
+};
+
+// Items API methods
+export const itemsAPI = {
+  getUserPlaidItems: async (userId: string): Promise<PlaidItemResponse[]> => {
+    const response = await apiClient.get<PlaidItemResponse[]>(`/items?user_id=${userId}`);
+    return response.data;
+  },
+};
+
+// Sync API methods
+export const syncAPI = {
+  syncTransactions: async (itemId: string): Promise<SyncResponse> => {
+    const response = await apiClient.post<SyncResponse>(`/sync/${itemId}`);
+    return response.data;
+  },
+};
+
+// Optimize API methods
+export const optimizeAPI = {
+  optimizeAll: async (): Promise<OptimizeResponse> => {
+    const response = await apiClient.post<OptimizeResponse>('/optimize');
     return response.data;
   },
 };

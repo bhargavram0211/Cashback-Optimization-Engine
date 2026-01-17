@@ -69,7 +69,7 @@ class CardProduct(SQLModel, table=True):
     Examples: Chase Freedom Unlimited, Amex Gold, etc.
     """
     __tablename__ = "card_products"
-    
+
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     provider: str = Field(
         sa_column=Column(String(100), nullable=False),

@@ -2,7 +2,10 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Landing } from './pages/Landing';
 import { Dashboard } from './pages/Dashboard';
+import { CardDiscovery } from './pages/CardDiscovery';
+import { IdentifyCards } from './pages/IdentifyCards';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { Layout } from './components/Layout';
 import { useAuthStore } from './store/authStore';
 
 function App() {
@@ -21,7 +24,29 @@ function App() {
           path="/dashboard"
           element={
             <ProtectedRoute>
-              <Dashboard />
+              <Layout>
+                <Dashboard />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/cards/discover"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <CardDiscovery />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/cards/identify"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <IdentifyCards />
+              </Layout>
             </ProtectedRoute>
           }
         />
