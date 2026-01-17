@@ -41,20 +41,39 @@ services:
     volumes:
       - ./backend/app:/app/app
 
-  frontend:
+  # Streamlit frontend (commented out during migration to React)
+  # Uncomment if you need to test the old Streamlit frontend
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile
+  #   platform: linux/arm64
+  #   container_name: cashback_frontend
+  #   environment:
+  #     BACKEND_URL: http://backend:8000
+  #   ports:
+  #     - "8501:8501"
+  #   depends_on:
+  #     - backend
+  #   volumes:
+  #     - ./frontend:/app
+  #   restart: unless-stopped
+
+  frontend-js:
     build:
-      context: ./frontend
+      context: ./frontend-js
       dockerfile: Dockerfile
     platform: linux/arm64
-    container_name: cashback_frontend
+    container_name: cashback_frontend_js
     environment:
-      BACKEND_URL: http://backend:8000
+      VITE_BACKEND_URL: http://localhost:8000
     ports:
-      - "8501:8501"
+      - "3000:3000"
     depends_on:
       - backend
     volumes:
-      - ./frontend:/app
+      - ./frontend-js:/app
+      - /app/node_modules
     restart: unless-stopped
 
 volumes:

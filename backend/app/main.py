@@ -5,6 +5,7 @@ Sub-Phase 1.4: Added transaction sync engine
 
 import os
 from fastapi import FastAPI, HTTPException, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, SQLModel, text
 from typing import Dict, Optional
 from pydantic import BaseModel
@@ -31,6 +32,20 @@ app = FastAPI(
     title="Cashback Optimization Engine",
     description="Backend API for credit card cashback optimization",
     version="0.4.0"
+)
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",  # React dev server
+        "http://localhost:8501",  # Streamlit (for backward compatibility)
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:8501",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Include API routers
