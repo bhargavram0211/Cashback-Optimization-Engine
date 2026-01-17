@@ -4,12 +4,13 @@ import { Landing } from './pages/Landing';
 import { Dashboard } from './pages/Dashboard';
 import { CardDiscovery } from './pages/CardDiscovery';
 import { IdentifyCards } from './pages/IdentifyCards';
+import { Onboarding } from './pages/Onboarding';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Layout } from './components/Layout';
 import { useAuthStore } from './store/authStore';
 
 function App() {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
 
   return (
     <BrowserRouter>
@@ -17,7 +18,23 @@ function App() {
         <Route
           path="/"
           element={
-            isAuthenticated ? <Navigate to="/dashboard" replace /> : <Landing />
+            isAuthenticated ? (
+              user?.onboarding_completed ? (
+                <Navigate to="/dashboard" replace />
+              ) : (
+                <Navigate to="/onboarding" replace />
+              )
+            ) : (
+              <Landing />
+            )
+          }
+        />
+        <Route
+          path="/onboarding"
+          element={
+            <ProtectedRoute requireOnboarding={false}>
+              <Onboarding />
+            </ProtectedRoute>
           }
         />
         <Route

@@ -67,6 +67,11 @@ export const authAPI = {
     const response = await apiClient.get<UserInfoResponse>('/auth/me');
     return response.data;
   },
+
+  markOnboardingComplete: async (): Promise<{ message: string; onboarding_completed: boolean }> => {
+    const response = await apiClient.patch<{ message: string; onboarding_completed: boolean }>('/auth/onboarding-complete');
+    return response.data;
+  },
 };
 
 // Reports API methods
