@@ -5,6 +5,7 @@ import { MetricCard } from '../components/MetricCard';
 import { CategoryChart } from '../components/CategoryChart';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { ErrorMessage } from '../components/ErrorMessage';
+import { SESSION_EXPIRED_MESSAGE } from '../constants/errors';
 import type { SavingsReport, PlaidItemResponse } from '../types';
 
 export const Dashboard: React.FC = () => {
@@ -35,7 +36,12 @@ export const Dashboard: React.FC = () => {
         const data = await reportsAPI.getSavingsReport(user.id);
         setReport(data);
       } catch (err: any) {
-        if (err.response?.status === 404) {
+        if (err.response?.status === 401) {
+          setError(SESSION_EXPIRED_MESSAGE);
+          setTimeout(() => {
+            window.location.href = '/';
+          }, 2000);
+        } else if (err.response?.status === 404) {
           // No transactions found - this is expected for new users
           setReport(null);
         } else {
@@ -99,8 +105,15 @@ export const Dashboard: React.FC = () => {
         }
       }, 2000);
     } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || 'Failed to connect to sandbox';
-      setError(errorMessage);
+      if (err.response?.status === 401) {
+        setError(SESSION_EXPIRED_MESSAGE);
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 2000);
+      } else {
+        const errorMessage = err.response?.data?.detail || 'Failed to connect to sandbox';
+        setError(errorMessage);
+      }
     } finally {
       setIsConnectingSandbox(false);
     }
@@ -132,8 +145,15 @@ export const Dashboard: React.FC = () => {
         }
       }, 1000);
     } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || 'Failed to optimize transactions';
-      setError(errorMessage);
+      if (err.response?.status === 401) {
+        setError(SESSION_EXPIRED_MESSAGE);
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 2000);
+      } else {
+        const errorMessage = err.response?.data?.detail || 'Failed to optimize transactions';
+        setError(errorMessage);
+      }
     } finally {
       setIsOptimizing(false);
     }
@@ -195,8 +215,15 @@ export const Dashboard: React.FC = () => {
         }
       }, 1500);
     } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || 'Failed to sync transactions';
-      setError(errorMessage);
+      if (err.response?.status === 401) {
+        setError(SESSION_EXPIRED_MESSAGE);
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 2000);
+      } else {
+        const errorMessage = err.response?.data?.detail || 'Failed to sync transactions';
+        setError(errorMessage);
+      }
     } finally {
       setIsSyncing(false);
     }

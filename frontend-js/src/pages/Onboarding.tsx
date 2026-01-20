@@ -4,7 +4,9 @@ import { useAuthStore } from '../store/authStore';
 import { plaidAPI, cardsAPI, authAPI, itemsAPI } from '../api/client';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { ErrorMessage } from '../components/ErrorMessage';
-import type { UnidentifiedCard, CardProduct } from '../types';
+import { PlaidLink, getPlaidExitErrorMessage } from '../components/PlaidLink';
+import { SESSION_EXPIRED_MESSAGE } from '../constants/errors';
+import type { UnidentifiedCard, CardProduct, PlaidLinkOnSuccessMetadata, PlaidLinkOnExitMetadata } from '../types';
 
 export const Onboarding: React.FC = () => {
   const navigate = useNavigate();
@@ -14,6 +16,13 @@ export const Onboarding: React.FC = () => {
   const [sandboxMessage, setSandboxMessage] = useState<string | null>(null);
   const [isConnectingSandbox, setIsConnectingSandbox] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Plaid Link state
+  const [linkToken, setLinkToken] = useState<string | null>(null);
+  const [isCreatingLinkToken, setIsCreatingLinkToken] = useState(false);
+  const [plaidConnected, setPlaidConnected] = useState(false);
+  const [plaidMessage, setPlaidMessage] = useState<string | null>(null);
+  const [cardsFound, setCardsFound] = useState(0);
 
   // Step 3 state (Identify Cards)
   const [unidentifiedCards, setUnidentifiedCards] = useState<UnidentifiedCard[]>([]);
@@ -52,8 +61,15 @@ export const Onboarding: React.FC = () => {
           });
           setSelectedProducts(initialSelections);
         } catch (err: any) {
-          const errorMessage = err.response?.data?.detail || 'Failed to load cards';
-          setError(errorMessage);
+          if (err.response?.status === 401) {
+            setError(SESSION_EXPIRED_MESSAGE);
+            setTimeout(() => {
+              window.location.href = '/';
+            }, 2000);
+          } else {
+            const errorMessage = err.response?.data?.detail || 'Failed to load cards';
+            setError(errorMessage);
+          }
         } finally {
           setIsLoadingCards(false);
         }
@@ -70,7 +86,7 @@ export const Onboarding: React.FC = () => {
       unidentifiedCards.length === 0 &&
       !isLoadingCards &&
       !isCompletingOnboarding &&
-      sandboxConnected
+      (plaidConnected || sandboxConnected)
     ) {
       // Auto-complete if:
       // 1. There were cards and all are identified, OR
@@ -96,8 +112,15 @@ export const Onboarding: React.FC = () => {
             navigate('/dashboard');
           }, 2000);
         } catch (err: any) {
-          const errorMessage = err.response?.data?.detail || 'Failed to complete onboarding';
-          setError(errorMessage);
+          if (err.response?.status === 401) {
+            setError(SESSION_EXPIRED_MESSAGE);
+            setTimeout(() => {
+              window.location.href = '/';
+            }, 2000);
+          } else {
+            const errorMessage = err.response?.data?.detail || 'Failed to complete onboarding';
+            setError(errorMessage);
+          }
           setIsCompletingOnboarding(false);
         }
       };
@@ -109,7 +132,7 @@ export const Onboarding: React.FC = () => {
 
       return () => clearTimeout(timer);
     }
-  }, [currentStep, unidentifiedCards.length, isLoadingCards, cardProducts.length, isCompletingOnboarding, sandboxConnected, hadCardsToIdentify, user, setUser, navigate]);
+  }, [currentStep, unidentifiedCards.length, isLoadingCards, cardProducts.length, isCompletingOnboarding, plaidConnected, sandboxConnected, hadCardsToIdentify, user, setUser, navigate]);
 
   const handleConnectSandbox = async () => {
     setIsConnectingSandbox(true);
@@ -119,6 +142,7 @@ export const Onboarding: React.FC = () => {
     try {
       const response = await plaidAPI.connectSandbox();
       setSandboxConnected(true);
+      setCardsFound(response.cards_found);
       setSandboxMessage(
         `✅ ${response.message}\n` +
         `📊 Synced ${response.transactions_synced} transactions\n` +
@@ -130,10 +154,89 @@ export const Onboarding: React.FC = () => {
         await itemsAPI.getUserPlaidItems(user.id);
       }
     } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || 'Failed to connect to sandbox';
-      setError(errorMessage);
+      if (err.response?.status === 401) {
+        setError(SESSION_EXPIRED_MESSAGE);
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 2000);
+      } else {
+        const errorMessage = err.response?.data?.detail || 'Failed to connect to sandbox';
+        setError(errorMessage);
+      }
     } finally {
       setIsConnectingSandbox(false);
+    }
+  };
+
+  const handleCreateLinkToken = async () => {
+    setIsCreatingLinkToken(true);
+    setError(null);
+
+    try {
+      const response = await plaidAPI.createLinkToken();
+      setLinkToken(response.link_token);
+    } catch (err: any) {
+      if (err.response?.status === 401) {
+        setError(SESSION_EXPIRED_MESSAGE);
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 2000);
+        setIsCreatingLinkToken(false);
+        return;
+      }
+      const errorMessage = err.response?.data?.detail || 'Failed to create Plaid Link token';
+      setError(errorMessage);
+      setIsCreatingLinkToken(false);
+    }
+  };
+
+  const handlePlaidSuccess = async (publicToken: string, metadata: PlaidLinkOnSuccessMetadata) => {
+    setError(null);
+    setIsCreatingLinkToken(false);
+
+    try {
+      const response = await plaidAPI.exchangeToken({
+        public_token: publicToken,
+        institution_id: metadata.institution.institution_id,
+        institution_name: metadata.institution.name,
+      });
+
+      setPlaidConnected(true);
+      setCardsFound(response.cards_found);
+      setPlaidMessage(
+        `✅ Successfully connected to ${response.institution_name}\n` +
+        `📊 Synced ${response.transactions_synced} transactions\n` +
+        `💳 Found ${response.cards_found} credit card(s)`
+      );
+
+      // Refresh PlaidItems list
+      if (user?.id) {
+        await itemsAPI.getUserPlaidItems(user.id);
+      }
+
+      // Reset link token so Link doesn't auto-open again
+      setLinkToken(null);
+    } catch (err: any) {
+      if (err.response?.status === 401) {
+        setError(SESSION_EXPIRED_MESSAGE);
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 2000);
+      } else {
+        const errorMessage = err.response?.data?.detail || 'Failed to exchange token';
+        setError(errorMessage);
+      }
+      setLinkToken(null);
+    }
+  };
+
+  const handlePlaidExit = (err: Error | null, metadata: PlaidLinkOnExitMetadata | null) => {
+    setIsCreatingLinkToken(false);
+    setLinkToken(null);
+
+    if (err || metadata) {
+      const errorMessage = getPlaidExitErrorMessage(err, metadata);
+      setError(errorMessage);
     }
   };
 
@@ -153,8 +256,15 @@ export const Onboarding: React.FC = () => {
       delete newSelections[userCardId];
       setSelectedProducts(newSelections);
     } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || 'Failed to identify card';
-      alert(errorMessage);
+      if (err.response?.status === 401) {
+        setError(SESSION_EXPIRED_MESSAGE);
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 2000);
+      } else {
+        const errorMessage = err.response?.data?.detail || 'Failed to identify card';
+        alert(errorMessage);
+      }
     } finally {
       setIdentifyingCardId(null);
     }
@@ -180,8 +290,15 @@ export const Onboarding: React.FC = () => {
         navigate('/dashboard');
       }, 1500);
     } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || 'Failed to complete onboarding';
-      setError(errorMessage);
+      if (err.response?.status === 401) {
+        setError(SESSION_EXPIRED_MESSAGE);
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 2000);
+      } else {
+        const errorMessage = err.response?.data?.detail || 'Failed to complete onboarding';
+        setError(errorMessage);
+      }
       setIsCompletingOnboarding(false);
     }
   };
@@ -292,11 +409,68 @@ export const Onboarding: React.FC = () => {
               </p>
             </div>
 
-            {!sandboxConnected ? (
+            {/* Plaid Link Component */}
+            {linkToken && (
+              <PlaidLink
+                linkToken={linkToken}
+                onSuccess={handlePlaidSuccess}
+                onExit={handlePlaidExit}
+              />
+            )}
+
+            {/* Connection Status */}
+            {(plaidConnected || sandboxConnected) && (
               <div className="mb-6">
+                {plaidMessage && (
+                  <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg mb-4 whitespace-pre-line">
+                    {plaidMessage}
+                  </div>
+                )}
+                {sandboxMessage && (
+                  <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg mb-4 whitespace-pre-line">
+                    {sandboxMessage}
+                  </div>
+                )}
+                {(plaidConnected || sandboxConnected) && cardsFound === 0 && (
+                  <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg mb-4">
+                    ⚠️ No credit cards found. You can still proceed to the dashboard.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Connection Buttons */}
+            {!plaidConnected && !sandboxConnected && (
+              <div className="mb-6 space-y-4">
+                <button
+                  onClick={handleCreateLinkToken}
+                  disabled={isCreatingLinkToken || isConnectingSandbox}
+                  className="w-full px-6 py-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg font-semibold hover:shadow-lg transition-shadow disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                >
+                  {isCreatingLinkToken ? (
+                    <>
+                      <LoadingSpinner size="sm" className="mr-2" />
+                      Connecting...
+                    </>
+                  ) : (
+                    <>
+                      🔗 Connect Bank with Plaid Link
+                    </>
+                  )}
+                </button>
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-300"></div>
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-2 bg-white text-gray-500">Or</span>
+                  </div>
+                </div>
+
                 <button
                   onClick={handleConnectSandbox}
-                  disabled={isConnectingSandbox}
+                  disabled={isConnectingSandbox || isCreatingLinkToken}
                   className="w-full px-6 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:shadow-lg transition-shadow disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                 >
                   {isConnectingSandbox ? (
@@ -311,14 +485,6 @@ export const Onboarding: React.FC = () => {
                   )}
                 </button>
               </div>
-            ) : (
-              <div className="mb-6">
-                {sandboxMessage && (
-                  <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg mb-4 whitespace-pre-line">
-                    {sandboxMessage}
-                  </div>
-                )}
-              </div>
             )}
 
             <div className="flex gap-4">
@@ -330,7 +496,7 @@ export const Onboarding: React.FC = () => {
               </button>
               <button
                 onClick={() => setCurrentStep(3)}
-                disabled={!sandboxConnected}
+                disabled={!plaidConnected && !sandboxConnected}
                 className="flex-1 px-6 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg font-semibold hover:shadow-lg transition-shadow disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Continue →

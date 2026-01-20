@@ -3,6 +3,7 @@ import { cardsAPI } from '../api/client';
 import { CardProductCard } from '../components/CardProductCard';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { ErrorMessage } from '../components/ErrorMessage';
+import { SESSION_EXPIRED_MESSAGE } from '../constants/errors';
 import type { CardProduct } from '../types';
 
 const CATEGORIES = [
@@ -48,8 +49,15 @@ export const CardDiscovery: React.FC = () => {
         const data = await cardsAPI.getCardProducts();
         setCards(data);
       } catch (err: any) {
-        const errorMessage = err.response?.data?.detail || 'Failed to load cards';
-        setError(errorMessage);
+        if (err.response?.status === 401) {
+          setError(SESSION_EXPIRED_MESSAGE);
+          setTimeout(() => {
+            window.location.href = '/';
+          }, 2000);
+        } else {
+          const errorMessage = err.response?.data?.detail || 'Failed to load cards';
+          setError(errorMessage);
+        }
       } finally {
         setIsLoading(false);
       }

@@ -12,7 +12,10 @@ import type {
   ConnectSandboxResponse,
   OptimizeResponse,
   PlaidItemResponse,
-  SyncResponse
+  SyncResponse,
+  LinkTokenResponse,
+  ExchangeTokenRequest,
+  ExchangeTokenResponse
 } from '../types';
 
 const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
@@ -35,13 +38,36 @@ apiClient.interceptors.request.use((config) => {
 
 // Response interceptor for error handling
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Handle 204 No Content responses
+    if (response.status === 204) {
+      return response;
+    }
+    return response;
+  },
   (error: AxiosError<ApiError>) => {
+    // Only redirect on 401 if we're not already on the landing page
+    // AND only for auth-related endpoints (not for protected resource endpoints)
     if (error.response?.status === 401) {
-      // Handle unauthorized - clear token and redirect to login
+      const url = error.config?.url || '';
+      const isAuthEndpoint = url.includes('/auth/');
+      
+      // For non-auth endpoints, clear token but let component handle the error
+      // Only redirect if it's an auth endpoint failure (login/signup) or if we're on a protected route
+      if (!isAuthEndpoint) {
+        // Clear token but don't redirect - let the component show error
+        localStorage.removeItem('session_token');
+        localStorage.removeItem('auth_state');
+        // Reject the error so component can handle it
+        return Promise.reject(error);
+      }
+      
+      // For auth endpoints, redirect to login
       localStorage.removeItem('session_token');
       localStorage.removeItem('auth_state');
-      window.location.href = '/';
+      if (window.location.pathname !== '/') {
+        window.location.href = '/';
+      }
     }
     return Promise.reject(error);
   }
@@ -113,6 +139,16 @@ export const plaidAPI = {
     const response = await apiClient.post<ConnectSandboxResponse>('/plaid/connect-sandbox');
     return response.data;
   },
+
+  createLinkToken: async (): Promise<LinkTokenResponse> => {
+    const response = await apiClient.post<LinkTokenResponse>('/plaid/create-link-token');
+    return response.data;
+  },
+
+  exchangeToken: async (data: ExchangeTokenRequest): Promise<ExchangeTokenResponse> => {
+    const response = await apiClient.post<ExchangeTokenResponse>('/plaid/exchange-token', data);
+    return response.data;
+  },
 };
 
 // Items API methods
@@ -120,6 +156,10 @@ export const itemsAPI = {
   getUserPlaidItems: async (userId: string): Promise<PlaidItemResponse[]> => {
     const response = await apiClient.get<PlaidItemResponse[]>(`/items?user_id=${userId}`);
     return response.data;
+  },
+
+  deletePlaidItem: async (itemId: string): Promise<void> => {
+    await apiClient.delete(`/items/${itemId}`);
   },
 };
 

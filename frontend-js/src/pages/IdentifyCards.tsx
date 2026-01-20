@@ -3,6 +3,7 @@ import { useAuthStore } from '../store/authStore';
 import { cardsAPI } from '../api/client';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { ErrorMessage } from '../components/ErrorMessage';
+import { SESSION_EXPIRED_MESSAGE } from '../constants/errors';
 import type { UnidentifiedCard, CardProduct } from '../types';
 
 export const IdentifyCards: React.FC = () => {
@@ -38,8 +39,15 @@ export const IdentifyCards: React.FC = () => {
         });
         setSelectedProducts(initialSelections);
       } catch (err: any) {
-        const errorMessage = err.response?.data?.detail || 'Failed to load cards';
-        setError(errorMessage);
+        if (err.response?.status === 401) {
+          setError(SESSION_EXPIRED_MESSAGE);
+          setTimeout(() => {
+            window.location.href = '/';
+          }, 2000);
+        } else {
+          const errorMessage = err.response?.data?.detail || 'Failed to load cards';
+          setError(errorMessage);
+        }
       } finally {
         setIsLoading(false);
       }
@@ -64,8 +72,15 @@ export const IdentifyCards: React.FC = () => {
       delete newSelections[userCardId];
       setSelectedProducts(newSelections);
     } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || 'Failed to identify card';
-      alert(errorMessage);
+      if (err.response?.status === 401) {
+        setError(SESSION_EXPIRED_MESSAGE);
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 2000);
+      } else {
+        const errorMessage = err.response?.data?.detail || 'Failed to identify card';
+        alert(errorMessage);
+      }
     } finally {
       setIdentifyingCardId(null);
     }

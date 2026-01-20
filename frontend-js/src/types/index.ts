@@ -156,3 +156,58 @@ export interface OptimizeResponse {
   average_lost_per_transaction?: number;
   message?: string;
 }
+
+// Plaid Link types
+export interface LinkTokenResponse {
+  link_token: string;
+  expiration: string;
+}
+
+export interface ExchangeTokenRequest {
+  public_token: string;
+  institution_id: string;
+  institution_name: string;
+}
+
+export interface ExchangeTokenResponse {
+  plaid_item_id: string;
+  institution_name: string;
+  transactions_synced: number;
+  cards_found: number;
+  message: string;
+}
+
+// Plaid Link callback types
+export interface PlaidLinkOnSuccessMetadata {
+  institution: {
+    institution_id: string;
+    name: string;
+  };
+  accounts: Array<{
+    id: string;
+    name: string;
+    mask: string;
+    type: string;
+    subtype: string;
+  }>;
+  link_session_id: string;
+}
+
+export interface PlaidLinkOnExitMetadata {
+  institution?: {
+    institution_id: string;
+    name: string;
+  } | null;
+  status?: string | null;
+}
+
+export type PlaidLinkExitReason =
+  | 'USER_EXIT'
+  | 'INSTITUTION_ERROR'
+  | 'INVALID_CREDENTIALS'
+  | 'ITEM_LOGIN_REQUIRED'
+  | 'RATE_LIMIT_EXCEEDED'
+  | 'USER_PERMISSION_DENIED'
+  | 'USER_OAUTH_ACTION_REQUIRED'
+  | 'ERROR'
+  | 'OTHER';

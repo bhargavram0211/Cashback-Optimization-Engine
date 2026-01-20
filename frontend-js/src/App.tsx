@@ -5,6 +5,7 @@ import { Dashboard } from './pages/Dashboard';
 import { CardDiscovery } from './pages/CardDiscovery';
 import { IdentifyCards } from './pages/IdentifyCards';
 import { Onboarding } from './pages/Onboarding';
+import { BankManagement } from './pages/BankManagement';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Layout } from './components/Layout';
 import { useAuthStore } from './store/authStore';
@@ -63,6 +64,16 @@ function App() {
             <ProtectedRoute>
               <Layout>
                 <IdentifyCards />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/banks/manage"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <BankManagement />
               </Layout>
             </ProtectedRoute>
           }

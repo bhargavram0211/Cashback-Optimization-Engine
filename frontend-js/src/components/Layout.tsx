@@ -118,6 +118,18 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 Card Discovery
               </Link>
             </li>
+            <li>
+              <Link
+                to="/banks/manage"
+                className={`block px-4 py-3 rounded-lg transition-colors ${
+                  isActive('/banks/manage')
+                    ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                Manage Banks
+              </Link>
+            </li>
           </ul>
         </nav>
 
