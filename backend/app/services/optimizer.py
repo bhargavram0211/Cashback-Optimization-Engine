@@ -134,10 +134,15 @@ def find_best_user_card_for_bucket(
         Tuple of (best_user_card_id, best_multiplier)
     """
     # Get user's identified cards
-    user_cards_statement = select(UserCard).where(
-        UserCard.user_id == user_id,
-        UserCard.card_product_id != None,  # Only identified cards
-        UserCard.is_active == True
+    # Join with PlaidItem to ensure we only get cards from active banks
+    user_cards_statement = (
+        select(UserCard)
+        .join(PlaidItem, UserCard.plaid_item_id == PlaidItem.id)
+        .where(
+            PlaidItem.user_id == user_id,
+            UserCard.card_product_id != None,  # Only identified cards
+            UserCard.is_active == True
+        )
     )
     user_cards = session.exec(user_cards_statement).all()
     
@@ -146,6 +151,14 @@ def find_best_user_card_for_bucket(
     
     for user_card in user_cards:
         if exclude_user_card_id and user_card.id == exclude_user_card_id:
+            continue
+        
+        # Verify the UserCard still exists and is valid (defensive check)
+        # This handles cases where UserCard might have been deleted between queries
+        verified_card = session.exec(
+            select(UserCard).where(UserCard.id == user_card.id)
+        ).first()
+        if not verified_card:
             continue
         
         multiplier = get_user_card_multiplier(session, user_card.id, bucket)
@@ -275,8 +288,18 @@ def optimize_transaction(session: Session, transaction: Transaction) -> Dict[str
         transaction.internal_bucket
     )
     
+    # Validate that best_user_card_id still exists (defensive check)
+    if best_user_card_id:
+        best_user_card = session.exec(
+            select(UserCard).where(UserCard.id == best_user_card_id)
+        ).first()
+        if not best_user_card:
+            # Best card was deleted, set to None and recalculate
+            best_user_card_id = None
+            best_multiplier = Decimal("0.0")
+    
     # Calculate what could have been earned with best identified card
-    best_possible_cashback = calculate_cashback(transaction.amount, best_multiplier)
+    best_possible_cashback = calculate_cashback(transaction.amount, best_multiplier) if best_multiplier > 0 else Decimal("0.0")
     
     # Calculate opportunity cost (from identified cards)
     lost_savings = best_possible_cashback - actual_cashback

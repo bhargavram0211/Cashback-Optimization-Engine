@@ -124,6 +124,12 @@ class AnalyticsService:
         # Define aggregation with label for ORDER BY
         total_potential_savings = func.sum(Transaction.lost_savings).label("total_potential_savings")
         
+        # Use aliased UserCard to join through best_user_card_id
+        # Filter by user_id through the transaction's user_card_id (the card that was actually used)
+        from sqlalchemy.orm import aliased
+        BestUserCard = aliased(UserCard)
+        UsedUserCard = aliased(UserCard)
+        
         query = (
             select(
                 CardProduct.provider,
@@ -132,9 +138,10 @@ class AnalyticsService:
                 total_potential_savings,
                 func.avg(Transaction.lost_savings).label("avg_savings_per_transaction")
             )
-            .join(UserCard, Transaction.best_user_card_id == UserCard.id)
-            .join(CardProduct, UserCard.card_product_id == CardProduct.id)
-            .join(PlaidItem, UserCard.plaid_item_id == PlaidItem.id)
+            .join(UsedUserCard, Transaction.user_card_id == UsedUserCard.id)
+            .join(PlaidItem, UsedUserCard.plaid_item_id == PlaidItem.id)
+            .join(BestUserCard, Transaction.best_user_card_id == BestUserCard.id)
+            .join(CardProduct, BestUserCard.card_product_id == CardProduct.id)
             .where(PlaidItem.user_id == UUID(user_id))
             .where(Transaction.is_analyzable == True)
             .where(Transaction.best_user_card_id.isnot(None))
@@ -173,6 +180,12 @@ class AnalyticsService:
         # Define aggregation with label for ORDER BY
         potential_savings = func.sum(Transaction.lost_savings).label("potential_savings")
         
+        # Use aliased UserCard to join through best_user_card_id
+        # Filter by user_id through the transaction's user_card_id (the card that was actually used)
+        from sqlalchemy.orm import aliased
+        BestUserCard = aliased(UserCard)
+        UsedUserCard = aliased(UserCard)
+        
         query = (
             select(
                 CardProduct.provider,
@@ -180,9 +193,10 @@ class AnalyticsService:
                 func.count(Transaction.id).label("optimal_transaction_count"),
                 potential_savings
             )
-            .join(UserCard, Transaction.best_user_card_id == UserCard.id)
-            .join(CardProduct, UserCard.card_product_id == CardProduct.id)
-            .join(PlaidItem, UserCard.plaid_item_id == PlaidItem.id)
+            .join(UsedUserCard, Transaction.user_card_id == UsedUserCard.id)
+            .join(PlaidItem, UsedUserCard.plaid_item_id == PlaidItem.id)
+            .join(BestUserCard, Transaction.best_user_card_id == BestUserCard.id)
+            .join(CardProduct, BestUserCard.card_product_id == CardProduct.id)
             .where(PlaidItem.user_id == UUID(user_id))
             .where(Transaction.is_analyzable == True)
             .where(Transaction.best_user_card_id.isnot(None))

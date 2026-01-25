@@ -232,40 +232,54 @@ def delete_plaid_item(
         if user_cards:
             user_card_ids = [uc.id for uc in user_cards]
             
-            # 2. Delete all Transactions associated with these UserCards
-            # Handle both user_card_id and best_user_card_id references
-            transactions_by_user_card = session.exec(
+            # 2. Delete only transactions where user_card_id belongs to deleted bank
+            # These are transactions that actually used the deleted bank's cards
+            transactions_to_delete = session.exec(
                 select(Transaction).where(Transaction.user_card_id.in_(user_card_ids))
             ).all()
             
-            transactions_by_best_card = session.exec(
+            for transaction in transactions_to_delete:
+                session.delete(transaction)
+            
+            # 3. Update transactions where best_user_card_id references deleted cards
+            # These transactions belong to OTHER banks but had deleted bank's card as optimal
+            # We NULL out the reference and reset optimization fields (will be recalculated)
+            from decimal import Decimal
+            transactions_to_update = session.exec(
                 select(Transaction).where(Transaction.best_user_card_id.in_(user_card_ids))
             ).all()
             
-            # Combine and deduplicate by transaction ID (a transaction could match both conditions)
-            seen_ids = set()
-            all_transactions = []
-            for transaction in transactions_by_user_card + transactions_by_best_card:
-                if transaction.id not in seen_ids:
-                    seen_ids.add(transaction.id)
-                    all_transactions.append(transaction)
+            for transaction in transactions_to_update:
+                transaction.best_user_card_id = None
+                transaction.best_possible_cashback = None
+                transaction.lost_savings = Decimal("0.0")
+                # Note: We keep market_winner_product_id as it references CardProduct, not UserCard
+                session.add(transaction)
             
-            for transaction in all_transactions:
-                session.delete(transaction)
-            
-            # Flush to ensure transactions are deleted before we delete UserCards
+            # Flush to ensure transactions are deleted/updated before we delete UserCards
             session.flush()
             
-            # 3. Delete all UserCards
+            # 4. Delete all UserCards
             for user_card in user_cards:
                 session.delete(user_card)
             
             # Flush to ensure UserCards are deleted before we delete PlaidItem
             session.flush()
         
-        # 4. Finally, delete the PlaidItem
+        # 5. Finally, delete the PlaidItem
         session.delete(item)
         session.commit()
+        
+        # 6. Re-optimize remaining transactions for this user
+        # This recalculates best_user_card_id for transactions that had it NULLed out
+        try:
+            from app.services.optimizer import optimize_user_transactions
+            optimize_user_transactions(session, current_user.id)
+            print(f"✅ Re-optimized transactions for user {current_user.id} after bank deletion")
+        except Exception as e:
+            # Log error but don't fail the deletion
+            print(f"⚠️  Failed to re-optimize transactions after bank deletion: {e}")
+            # Continue - deletion was successful, optimization can be done manually
         
         # Return 204 No Content explicitly
         return Response(status_code=204)

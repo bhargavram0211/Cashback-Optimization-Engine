@@ -25,7 +25,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 from sqlmodel import Session, select
 from app.core.database import engine
-from app.models import CardProduct, RewardRule, UserCard
+from app.models import CardProduct, RewardRule, UserCard, Transaction
 
 
 # Path to card definitions directory
@@ -292,24 +292,34 @@ def cleanup_orphaned_cards(
             ).all()
             
             # Check if any Transactions reference this card via market_winner_product_id
-            from app.models import Transaction
-            transactions_using_this = session.exec(
+            transactions_with_market_winner = session.exec(
                 select(Transaction).where(Transaction.market_winner_product_id == card.id)
             ).all()
             
-            if len(user_cards_using_this) > 0 or len(transactions_using_this) > 0:
-                # Can't delete - has references
+            # Update transactions that reference this card as market_winner_product_id
+            # NULL out the reference so transactions don't point to deleted/unavailable cards
+            if transactions_with_market_winner:
+                from decimal import Decimal
+                for transaction in transactions_with_market_winner:
+                    transaction.market_winner_product_id = None
+                    transaction.market_winner_cashback = None
+                    session.add(transaction)
+                if verbose:
+                    print(f"   🔄 Updated {len(transactions_with_market_winner)} transaction(s) with NULL market_winner_product_id")
+                session.flush()  # Ensure updates are written
+            
+            if len(user_cards_using_this) > 0:
+                # Can't delete - has UserCard references
                 # Mark as unavailable instead
                 if card.is_available_in_market:
                     card.is_available_in_market = False
                     session.add(card)
                     session.flush()  # Ensure the change is written
                     orphaned_count += 1
-                    ref_count = len(user_cards_using_this) + len(transactions_using_this)
                     if verbose:
-                        print(f"   ⚠️  Marked as unavailable (has {ref_count} reference(s)): {card.provider} {card.card_name}")
+                        print(f"   ⚠️  Marked as unavailable (has {len(user_cards_using_this)} user card reference(s)): {card.provider} {card.card_name}")
             else:
-                # Safe to delete - no references
+                # Safe to delete - no UserCard references (market_winner references already NULLed)
                 # First delete reward rules
                 rules = session.exec(
                     select(RewardRule).where(RewardRule.card_product_id == card.id)
