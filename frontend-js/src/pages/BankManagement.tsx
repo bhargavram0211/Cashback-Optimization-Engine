@@ -34,7 +34,7 @@ export const BankManagement: React.FC = () => {
     setError(null);
 
     try {
-      const items = await itemsAPI.getUserPlaidItems(user.id);
+      const items = await itemsAPI.getUserPlaidItems();
       setPlaidItems(items);
     } catch (err: any) {
       const errorMessage = err.response?.data?.detail || 'Failed to load connected banks';

@@ -151,7 +151,7 @@ export const Onboarding: React.FC = () => {
 
       // Refresh PlaidItems list
       if (user?.id) {
-        await itemsAPI.getUserPlaidItems(user.id);
+        await itemsAPI.getUserPlaidItems();
       }
     } catch (err: any) {
       if (err.response?.status === 401) {
@@ -211,7 +211,7 @@ export const Onboarding: React.FC = () => {
 
       // Refresh PlaidItems list
       if (user?.id) {
-        await itemsAPI.getUserPlaidItems(user.id);
+        await itemsAPI.getUserPlaidItems();
       }
 
       // Reset link token so Link doesn't auto-open again

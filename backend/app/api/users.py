@@ -11,6 +11,7 @@ from uuid import UUID
 
 from app.models.models import User
 from app.core.database import get_session
+from app.api.auth import get_current_user
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -84,18 +85,34 @@ def create_user(
 @router.get("/{user_id}", response_model=UserResponse)
 def get_user(
     user_id: UUID,
+    current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
     """
     Get a user by ID.
     
+    Requires: Authorization header with Bearer token
+    Users can only view their own profile.
+    
     Args:
         user_id: UUID of the user
+        current_user: Current authenticated user
         session: Database session
         
     Returns:
         User data
+        
+    Raises:
+        404: User not found
+        403: User doesn't have permission to view this profile
     """
+    # Verify user can only view their own profile
+    if user_id != current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="You don't have permission to view this user's profile"
+        )
+    
     user = session.get(User, user_id)
     
     if not user:
@@ -113,27 +130,26 @@ def get_user(
 
 @router.get("", response_model=list[UserResponse])
 def list_users(
+    current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
     limit: int = 10
 ):
     """
     List all users (for testing/development).
     
+    Requires: Authorization header with Bearer token
+    Note: In production, this endpoint should be restricted to admin users only.
+    Currently returns empty list to prevent data leakage.
+    
     Args:
+        current_user: Current authenticated user
         session: Database session
-        limit: Maximum number of users to return
+        limit: Maximum number of users to return (not used)
         
     Returns:
-        List of users
+        Empty list (security measure)
     """
-    users = session.exec(select(User).limit(limit)).all()
-    
-    return [
-        UserResponse(
-            id=user.id,
-            email=user.email,
-            created_at=user.created_at
-        )
-        for user in users
-    ]
+    # Security: Don't expose user list in production
+    # In a real application, this should check for admin role
+    return []
 

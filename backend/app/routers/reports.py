@@ -8,6 +8,8 @@ from sqlmodel import Session
 
 from app.core.database import get_session
 from app.services.analytics import AnalyticsService
+from app.api.auth import get_current_user
+from app.models.models import User
 from app.schemas import (
     SavingsReport,
     SavingsSummary,
@@ -18,10 +20,15 @@ from app.schemas import (
 router = APIRouter(prefix="/reports", tags=["Reports"])
 
 
-@router.get("/savings/{user_id}", response_model=SavingsReport)
-async def get_savings_report(user_id: str, session: Session = Depends(get_session)):
+@router.get("/savings", response_model=SavingsReport)
+async def get_savings_report(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
     """
-    Get a comprehensive savings report for a user.
+    Get a comprehensive savings report for the authenticated user.
+    
+    Requires: Authorization header with Bearer token
     
     This endpoint consolidates multiple analytics queries into a single response:
     - Summary: Total spending, earnings, and opportunity cost
@@ -31,7 +38,7 @@ async def get_savings_report(user_id: str, session: Session = Depends(get_sessio
     This is the primary endpoint for dashboard views and user reports.
     
     Args:
-        user_id: UUID of the user
+        current_user: Current authenticated user
         session: Database session (injected)
     
     Returns:
@@ -39,7 +46,6 @@ async def get_savings_report(user_id: str, session: Session = Depends(get_sessio
     
     Raises:
         404: No transactions found for this user
-        400: Invalid user_id format
         500: Database or processing error
     
     Example Response:
@@ -72,6 +78,7 @@ async def get_savings_report(user_id: str, session: Session = Depends(get_sessio
     }
     """
     try:
+        user_id = str(current_user.id)
         # Fetch summary
         summary_data = AnalyticsService.get_savings_summary(session, user_id)
         if not summary_data:

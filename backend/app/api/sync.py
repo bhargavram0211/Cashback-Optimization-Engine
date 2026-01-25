@@ -21,7 +21,8 @@ from plaid.model.account_subtype import AccountSubtype
 
 from app.core import get_plaid_client_instance
 from app.core.database import get_session
-from app.models import PlaidItem, UserCard, Transaction
+from app.models import PlaidItem, UserCard, Transaction, User
+from app.api.auth import get_current_user
 from app.logic import get_mapper
 
 router = APIRouter(prefix="/sync", tags=["sync"])
@@ -141,6 +142,7 @@ def get_credit_card_accounts(
 @router.post("/{item_id}", response_model=SyncResponse)
 async def sync_transactions(
     item_id: UUID,
+    current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ) -> SyncResponse:
     """
@@ -172,6 +174,13 @@ async def sync_transactions(
     
     if not plaid_item:
         raise HTTPException(status_code=404, detail=f"PlaidItem {item_id} not found")
+    
+    # Verify ownership
+    if plaid_item.user_id != current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="You don't have permission to sync this bank connection"
+        )
     
     # Initialize Plaid client and mapper
     plaid_client = get_plaid_client_instance()

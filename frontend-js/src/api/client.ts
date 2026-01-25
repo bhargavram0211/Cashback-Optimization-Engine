@@ -15,7 +15,9 @@ import type {
   SyncResponse,
   LinkTokenResponse,
   ExchangeTokenRequest,
-  ExchangeTokenResponse
+  ExchangeTokenResponse,
+  CardComparison,
+  OptimizationOpportunity
 } from '../types';
 
 const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
@@ -102,8 +104,8 @@ export const authAPI = {
 
 // Reports API methods
 export const reportsAPI = {
-  getSavingsReport: async (userId: string): Promise<SavingsReport> => {
-    const response = await apiClient.get<SavingsReport>(`/reports/savings/${userId}`);
+  getSavingsReport: async (): Promise<SavingsReport> => {
+    const response = await apiClient.get<SavingsReport>('/reports/savings');
     return response.data;
   },
 };
@@ -153,8 +155,8 @@ export const plaidAPI = {
 
 // Items API methods
 export const itemsAPI = {
-  getUserPlaidItems: async (userId: string): Promise<PlaidItemResponse[]> => {
-    const response = await apiClient.get<PlaidItemResponse[]>(`/items?user_id=${userId}`);
+  getUserPlaidItems: async (): Promise<PlaidItemResponse[]> => {
+    const response = await apiClient.get<PlaidItemResponse[]>('/items');
     return response.data;
   },
 
@@ -175,6 +177,19 @@ export const syncAPI = {
 export const optimizeAPI = {
   optimizeAll: async (): Promise<OptimizeResponse> => {
     const response = await apiClient.post<OptimizeResponse>('/optimize');
+    return response.data;
+  },
+};
+
+// Analytics API methods
+export const analyticsAPI = {
+  getCardComparison: async (): Promise<CardComparison[]> => {
+    const response = await apiClient.get<CardComparison[]>('/analytics/card-comparison');
+    return response.data;
+  },
+
+  getOptimizationOpportunities: async (): Promise<OptimizationOpportunity[]> => {
+    const response = await apiClient.get<OptimizationOpportunity[]>('/analytics/opportunities');
     return response.data;
   },
 };

@@ -14,7 +14,7 @@ from typing import Dict, Tuple, Optional
 from uuid import UUID
 
 from sqlmodel import Session, select
-from app.models import UserCard, CardProduct, RewardRule, Transaction
+from app.models import UserCard, CardProduct, RewardRule, Transaction, PlaidItem
 
 
 def get_user_card_multiplier(
@@ -308,9 +308,95 @@ def optimize_transaction(session: Session, transaction: Transaction) -> Dict[str
     }
 
 
+def optimize_user_transactions(session: Session, user_id: UUID) -> Dict[str, any]:
+    """
+    Optimize all transactions for a specific user.
+    
+    Filters transactions by user_id using JOIN: Transaction → UserCard → PlaidItem → user_id
+    
+    Process:
+    1. Fetch all transactions for the user
+    2. For each transaction, calculate optimal card usage
+    3. Update transaction with optimization results
+    4. Return summary statistics
+    
+    Args:
+        session: Database session
+        user_id: UUID of the user
+    
+    Returns:
+        Dict with optimization summary
+    """
+    print(f"🔍 Starting optimization engine for user {user_id}...")
+    
+    # Get transactions for this user via JOIN
+    statement = (
+        select(Transaction)
+        .join(UserCard, Transaction.user_card_id == UserCard.id)
+        .join(PlaidItem, UserCard.plaid_item_id == PlaidItem.id)
+        .where(PlaidItem.user_id == user_id)
+    )
+    transactions = session.exec(statement).all()
+    
+    if not transactions:
+        return {
+            "status": "no_transactions",
+            "message": "No transactions found for this user"
+        }
+    
+    print(f"📊 Found {len(transactions)} transactions to optimize for user {user_id}")
+    
+    # Statistics
+    stats = {
+        "total_transactions": len(transactions),
+        "optimized": 0,
+        "skipped_non_analyzable": 0,
+        "skipped_no_bucket": 0,
+        "total_actual_cashback": Decimal("0.0"),
+        "total_potential_cashback": Decimal("0.0"),
+        "total_lost_savings": Decimal("0.0")
+    }
+    
+    # Optimize each transaction
+    for txn in transactions:
+        result = optimize_transaction(session, txn)
+        
+        if result["optimized"]:
+            stats["optimized"] += 1
+            stats["total_actual_cashback"] += txn.actual_cashback or Decimal("0.0")
+            stats["total_potential_cashback"] += txn.best_possible_cashback or Decimal("0.0")
+            stats["total_lost_savings"] += txn.lost_savings or Decimal("0.0")
+        elif result["reason"] == "non_analyzable":
+            stats["skipped_non_analyzable"] += 1
+        elif result["reason"] == "no_bucket":
+            stats["skipped_no_bucket"] += 1
+    
+    # Commit all changes
+    session.commit()
+    
+    print(f"✅ Optimized {stats['optimized']} transactions for user {user_id}")
+    print(f"⏭️  Skipped {stats['skipped_non_analyzable']} non-analyzable transactions")
+    print(f"⏭️  Skipped {stats['skipped_no_bucket']} transactions without bucket")
+    print(f"💰 Total opportunity cost: ${stats['total_lost_savings']:.2f}")
+    
+    return {
+        "status": "success",
+        "total_transactions": stats["total_transactions"],
+        "optimized": stats["optimized"],
+        "skipped": stats["skipped_non_analyzable"] + stats["skipped_no_bucket"],
+        "total_actual_cashback": float(stats["total_actual_cashback"]),
+        "total_potential_cashback": float(stats["total_potential_cashback"]),
+        "total_lost_savings": float(stats["total_lost_savings"]),
+        "average_lost_per_transaction": float(
+            stats["total_lost_savings"] / stats["optimized"]
+            if stats["optimized"] > 0 else 0
+        )
+    }
+
+
 def optimize_all_transactions(session: Session) -> Dict[str, any]:
     """
-    Optimize all transactions in the database.
+    Optimize all transactions in the database (admin/system use only).
     
     Main entry point for the optimization engine.
     

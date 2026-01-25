@@ -101,17 +101,26 @@ def create_plaid_item(
 @router.get("/{item_id}", response_model=PlaidItemResponse)
 def get_plaid_item(
     item_id: UUID,
+    current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
     """
     Get a PlaidItem by ID.
     
+    Requires: Authorization header with Bearer token
+    Only returns items owned by the authenticated user.
+    
     Args:
         item_id: UUID of the PlaidItem
+        current_user: Current authenticated user
         session: Database session
         
     Returns:
         PlaidItem data (access_token hidden)
+        
+    Raises:
+        404: Item not found
+        403: User doesn't own this item
     """
     item = session.get(PlaidItem, item_id)
     
@@ -119,6 +128,13 @@ def get_plaid_item(
         raise HTTPException(
             status_code=404,
             detail=f"PlaidItem {item_id} not found"
+        )
+    
+    # Verify ownership
+    if item.user_id != current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="You don't have permission to view this bank connection"
         )
     
     return PlaidItemResponse(
@@ -133,27 +149,23 @@ def get_plaid_item(
 
 @router.get("", response_model=list[PlaidItemResponse])
 def list_plaid_items(
-    session: Session = Depends(get_session),
-    user_id: Optional[UUID] = None,
-    limit: int = 10
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
 ):
     """
-    List PlaidItems (for testing/development).
+    List PlaidItems for the authenticated user.
+    
+    Requires: Authorization header with Bearer token
+    Only returns items owned by the authenticated user.
     
     Args:
+        current_user: Current authenticated user
         session: Database session
-        user_id: Optional filter by user ID
-        limit: Maximum number of items to return
         
     Returns:
-        List of PlaidItems
+        List of PlaidItems owned by the user
     """
-    query = select(PlaidItem)
-    
-    if user_id:
-        query = query.where(PlaidItem.user_id == user_id)
-    
-    query = query.limit(limit)
+    query = select(PlaidItem).where(PlaidItem.user_id == current_user.id)
     items = session.exec(query).all()
     
     return [

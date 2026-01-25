@@ -25,7 +25,8 @@ from app.api import sync, users, items, analytics, cards, auth, plaid_link
 from app.routers import reports
 
 # Import services
-from app.services import optimize_all_transactions
+from app.services.optimizer import optimize_user_transactions
+from app.api.auth import get_current_user
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -187,14 +188,17 @@ async def test_category_mapping(request: CategoryMapRequest) -> CategoryMapRespo
 
 
 @app.post("/optimize", tags=["Optimization"])
-async def optimize(session: Session = Depends(get_session)) -> Dict:
+async def optimize(
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+) -> Dict:
     """
-    Run the cashback optimization engine on all transactions.
+    Run the cashback optimization engine on the current user's transactions.
     
-    Phase 2.2: The Optimization Engine
+    Phase 2.2: The Optimization Engine (User-Scoped)
     
     Process:
-    1. Loops through every transaction in the database
+    1. Loops through every transaction for the authenticated user
     2. For each transaction, checks the internal_bucket (e.g., DINING)
     3. Scans all cards to find which has the highest multiplier for that bucket
     4. Calculates:
@@ -202,6 +206,8 @@ async def optimize(session: Session = Depends(get_session)) -> Dict:
        - best_possible_cashback: What could have been earned with optimal card
        - lost_savings: Opportunity cost (best - actual)
     5. Updates each transaction with best_card_id and lost_savings
+    
+    Requires: Authorization header with Bearer token
     
     Returns:
         Dict with optimization summary:
@@ -226,7 +232,7 @@ async def optimize(session: Session = Depends(get_session)) -> Dict:
     }
     """
     try:
-        result = optimize_all_transactions(session)
+        result = optimize_user_transactions(session, current_user.id)
         return result
     except Exception as e:
         raise HTTPException(

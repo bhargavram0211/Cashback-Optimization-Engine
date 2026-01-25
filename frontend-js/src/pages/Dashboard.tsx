@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useAuthStore } from '../store/authStore';
-import { reportsAPI, plaidAPI, itemsAPI, syncAPI, optimizeAPI } from '../api/client';
+import { reportsAPI, plaidAPI, itemsAPI, syncAPI, optimizeAPI, analyticsAPI } from '../api/client';
 import { MetricCard } from '../components/MetricCard';
 import { CategoryChart } from '../components/CategoryChart';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { ErrorMessage } from '../components/ErrorMessage';
 import { SESSION_EXPIRED_MESSAGE } from '../constants/errors';
-import type { SavingsReport, PlaidItemResponse } from '../types';
+import type { SavingsReport, PlaidItemResponse, CardComparison, OptimizationOpportunity } from '../types';
 
 export const Dashboard: React.FC = () => {
   const { user } = useAuthStore();
@@ -24,6 +24,12 @@ export const Dashboard: React.FC = () => {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [optimizeMessage, setOptimizeMessage] = useState<string | null>(null);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  
+  // New state for enhanced dashboard features
+  const [cardComparisons, setCardComparisons] = useState<CardComparison[]>([]);
+  const [optimizationOpportunities, setOptimizationOpportunities] = useState<OptimizationOpportunity[]>([]);
+  const [isLoadingCardComparison, setIsLoadingCardComparison] = useState(false);
+  const [isLoadingOpportunities, setIsLoadingOpportunities] = useState(false);
 
   useEffect(() => {
     const fetchReport = async () => {
@@ -33,7 +39,7 @@ export const Dashboard: React.FC = () => {
       setError(null);
 
       try {
-        const data = await reportsAPI.getSavingsReport(user.id);
+        const data = await reportsAPI.getSavingsReport();
         setReport(data);
       } catch (err: any) {
         if (err.response?.status === 401) {
@@ -62,7 +68,7 @@ export const Dashboard: React.FC = () => {
       if (!user?.id) return;
 
       try {
-        const items = await itemsAPI.getUserPlaidItems(user.id);
+        const items = await itemsAPI.getUserPlaidItems();
         setPlaidItems(items);
       } catch (err: any) {
         // Silently fail - user might not have any PlaidItems yet
@@ -72,6 +78,37 @@ export const Dashboard: React.FC = () => {
 
     fetchPlaidItems();
   }, [user?.id]);
+
+  // Fetch card comparison and opportunities when report is loaded
+  useEffect(() => {
+    const fetchEnhancedData = async () => {
+      if (!user?.id || !report) return;
+
+      // Fetch card comparison
+      setIsLoadingCardComparison(true);
+      try {
+        const comparisons = await analyticsAPI.getCardComparison();
+        setCardComparisons(comparisons);
+      } catch (err: any) {
+        console.log('Error fetching card comparison:', err);
+      } finally {
+        setIsLoadingCardComparison(false);
+      }
+
+      // Fetch optimization opportunities
+      setIsLoadingOpportunities(true);
+      try {
+        const opportunities = await analyticsAPI.getOptimizationOpportunities();
+        setOptimizationOpportunities(opportunities);
+      } catch (err: any) {
+        console.log('Error fetching optimization opportunities:', err);
+      } finally {
+        setIsLoadingOpportunities(false);
+      }
+    };
+
+    fetchEnhancedData();
+  }, [user?.id, report]);
 
   const handleConnectSandbox = async () => {
     setIsConnectingSandbox(true);
@@ -88,7 +125,7 @@ export const Dashboard: React.FC = () => {
       
       // Refresh PlaidItems list
       if (user?.id) {
-        const items = await itemsAPI.getUserPlaidItems(user.id);
+        const items = await itemsAPI.getUserPlaidItems();
         setPlaidItems(items);
       }
       
@@ -96,7 +133,7 @@ export const Dashboard: React.FC = () => {
       setTimeout(async () => {
         try {
           if (user?.id) {
-            const data = await reportsAPI.getSavingsReport(user.id);
+            const data = await reportsAPI.getSavingsReport();
             setReport(data);
           }
         } catch (err: any) {
@@ -319,7 +356,7 @@ export const Dashboard: React.FC = () => {
                 onClick={() => {
                   if (user?.id) {
                     setIsLoading(true);
-                    reportsAPI.getSavingsReport(user.id)
+                    reportsAPI.getSavingsReport()
                       .then(setReport)
                       .catch((err: any) => {
                         if (err.response?.status === 404) {
@@ -568,6 +605,120 @@ export const Dashboard: React.FC = () => {
                     </p>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Card Comparison Section */}
+        {cardComparisons.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">💳 Card Performance Comparison</h2>
+            <div className="bg-white rounded-lg shadow p-6">
+              <p className="text-gray-700 mb-4">
+                Compare your cards by potential savings if used optimally for the transactions where they're the best choice.
+              </p>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Card
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Optimal Transactions
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Potential Savings
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {cardComparisons.map((card, index) => (
+                      <tr key={`${card.provider}-${card.card_name}-${index}`} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">
+                            {card.provider} {card.card_name}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-700">
+                            {card.optimal_transaction_count}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-semibold text-green-600">
+                            ${card.potential_savings.toFixed(2)}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Optimization Opportunities Table */}
+        {optimizationOpportunities.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">🎯 Transaction Opportunities</h2>
+            <div className="bg-white rounded-lg shadow p-6">
+              <p className="text-gray-700 mb-4">
+                Top transactions where using a different card would have saved you money. Limited to top 20 opportunities.
+              </p>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Date
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Merchant
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Category
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Amount
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Lost Savings
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Recommended Card
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {optimizationOpportunities.slice(0, 20).map((opp, index) => (
+                      <tr key={`${opp.merchant_name}-${opp.date}-${index}`} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                          {opp.date ? new Date(opp.date).toLocaleDateString() : 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {opp.merchant_name || 'Unknown'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                          {opp.internal_bucket || 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                          ${Math.abs(opp.amount).toFixed(2)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-red-600">
+                          ${opp.lost_savings.toFixed(2)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                          {opp.best_card_provider && opp.best_card_name
+                            ? `${opp.best_card_provider} ${opp.best_card_name}`
+                            : 'N/A'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>

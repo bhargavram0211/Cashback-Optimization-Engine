@@ -155,6 +155,7 @@ async def exchange_public_token(
         # Automatically sync transactions
         sync_result = await sync_transactions(
             item_id=plaid_item.id,
+            current_user=current_user,
             session=session
         )
         
@@ -265,6 +266,7 @@ async def connect_sandbox(
             try:
                 sync_result = await sync_transactions(
                     item_id=plaid_item.id,
+                    current_user=current_user,
                     session=session
                 )
                 

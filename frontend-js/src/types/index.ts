@@ -134,6 +134,25 @@ export interface PlaidItemResponse {
   updated_at: string;
 }
 
+export interface CardComparison {
+  provider: string;
+  card_name: string;
+  optimal_transaction_count: number;
+  potential_savings: number;
+}
+
+export interface OptimizationOpportunity {
+  merchant_name: string | null;
+  amount: number;
+  date: string | null;
+  internal_bucket: string | null;
+  actual_cashback: number;
+  best_possible_cashback: number;
+  lost_savings: number;
+  best_card_provider: string | null;
+  best_card_name: string | null;
+}
+
 export interface SyncResponse {
   item_id: string;
   transactions_added: number;
