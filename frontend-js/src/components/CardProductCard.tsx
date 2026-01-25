@@ -37,6 +37,21 @@ export const CardProductCard: React.FC<CardProductCardProps> = ({ card }) => {
 
   return (
     <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6 hover:shadow-lg transition-shadow">
+      {/* Card Image */}
+      {card.image_url && (
+        <div className="mb-4 flex justify-center">
+          <img
+            src={card.image_url}
+            alt={`${card.provider} ${card.card_name}`}
+            className="h-32 w-auto object-contain rounded-lg"
+            onError={(e) => {
+              // Hide image if it fails to load
+              e.currentTarget.style.display = 'none';
+            }}
+          />
+        </div>
+      )}
+
       {/* Card Header */}
       <div className="mb-4">
         <h3 className="text-xl font-bold text-gray-900 mb-1">{card.provider}</h3>

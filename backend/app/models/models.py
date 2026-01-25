@@ -98,6 +98,11 @@ class CardProduct(SQLModel, table=True):
         default=True,
         description="If False, card is discontinued or not available for new applications"
     )
+    yaml_filename: Optional[str] = Field(
+        default=None,
+        sa_column=Column(String(255), unique=True, index=True),
+        description="Name of the YAML file that defines this card (e.g., 'icici_international.yaml'). Used as unique identifier for card import/update/delete operations."
+    )
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 

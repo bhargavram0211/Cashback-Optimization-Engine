@@ -40,6 +40,8 @@ services:
         condition: service_healthy
     volumes:
       - ./backend/app:/app/app
+      - ./backend/data:/app/data
+      - ./backend/scripts:/app/scripts
 
   # Streamlit frontend (commented out during migration to React)
   # Uncomment if you need to test the old Streamlit frontend

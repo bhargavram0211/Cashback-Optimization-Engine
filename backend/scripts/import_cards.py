@@ -17,7 +17,7 @@ import os
 import argparse
 from pathlib import Path
 from decimal import Decimal
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 import yaml
 
 # Add parent directory to path for imports
@@ -25,7 +25,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 from sqlmodel import Session, select
 from app.core.database import engine
-from app.models import CardProduct, RewardRule
+from app.models import CardProduct, RewardRule, UserCard
 
 
 # Path to card definitions directory
@@ -154,11 +154,14 @@ def import_card(
     """
     Import or update a single card product.
     
+    YAML-filename-based system: Each YAML file = One Card.
+    Cards are identified by yaml_filename, not provider + card_name.
+    
     Args:
         session: Database session
         card_data: Validated card data from YAML
-        yaml_filename: Name of the YAML file (for logging)
-        update_existing: Whether to update existing cards
+        yaml_filename: Name of the YAML file (e.g., "icici_international.yaml")
+        update_existing: Whether to update existing cards (always True in new system)
         verbose: Whether to show detailed logging
         
     Returns:
@@ -167,16 +170,10 @@ def import_card(
     provider = card_data['provider']
     card_name = card_data['card_name']
     
-    # Check if card product already exists (by provider + card_name)
+    # PRIMARY LOOKUP: Find card by yaml_filename (not provider + card_name)
     existing = session.exec(
-        select(CardProduct).where(
-            CardProduct.provider == provider,
-            CardProduct.card_name == card_name
-        )
+        select(CardProduct).where(CardProduct.yaml_filename == yaml_filename)
     ).first()
-    
-    if existing and not update_existing:
-        return (True, f"⏭️  Skipped (already exists)")
     
     # Prepare card product data
     base_reward_rate = Decimal(str(card_data.get('base_reward_rate', 1.0)))
@@ -185,22 +182,32 @@ def import_card(
     benefits_url = card_data.get('benefits_url')
     
     if existing:
-        # Update existing card product
+        # UPDATE existing card (yaml_filename matches)
         card_product = existing
+        # Update ALL fields, including card_name (handles renames)
+        if card_product.card_name != card_name:
+            if verbose:
+                print(f"      ↻ Renaming: '{card_product.card_name}' → '{card_name}'")
+        card_product.provider = provider
+        card_product.card_name = card_name
         card_product.base_reward_rate = base_reward_rate
         card_product.is_available_in_market = is_available
         card_product.image_url = image_url
         card_product.benefits_url = benefits_url
+        # Ensure yaml_filename is set (in case it was NULL from migration)
+        if not card_product.yaml_filename:
+            card_product.yaml_filename = yaml_filename
         action = "updated"
     else:
-        # Create new card product
+        # CREATE new card (yaml_filename not found)
         card_product = CardProduct(
             provider=provider,
             card_name=card_name,
             base_reward_rate=base_reward_rate,
             is_available_in_market=is_available,
             image_url=image_url,
-            benefits_url=benefits_url
+            benefits_url=benefits_url,
+            yaml_filename=yaml_filename  # Set the unique identifier
         )
         session.add(card_product)
         action = "created"
@@ -208,56 +215,214 @@ def import_card(
     session.commit()
     session.refresh(card_product)
     
-    # Import reward rules
-    rules_processed = 0
-    rules_created = 0
-    rules_updated = 0
+    # Always update reward rules: Delete old rules, create new ones from YAML
+    # This ensures rules always match the YAML file exactly
+    existing_rules = session.exec(
+        select(RewardRule).where(RewardRule.card_product_id == card_product.id)
+    ).all()
     
+    # Delete all existing rules
+    for rule in existing_rules:
+        session.delete(rule)
+    session.commit()
+    
+    # Create new rules from YAML
+    rules_created = 0
     for rule_data in card_data['rewards']:
         bucket = rule_data['bucket'].upper()  # Normalize to uppercase
         multiplier = Decimal(str(rule_data['multiplier']))
         
-        # Check if rule exists
-        existing_rule = session.exec(
-            select(RewardRule).where(
-                RewardRule.card_product_id == card_product.id,
-                RewardRule.bucket == bucket
-            )
-        ).first()
-        
-        if existing_rule:
-            if update_existing or not existing:
-                existing_rule.multiplier = multiplier
-                session.commit()
-                rules_updated += 1
-                if verbose:
-                    print(f"      ↻ Updated: {bucket} → {multiplier}x")
-        else:
-            new_rule = RewardRule(
-                card_product_id=card_product.id,
-                bucket=bucket,
-                multiplier=multiplier
-            )
-            session.add(new_rule)
-            session.commit()
-            rules_created += 1
-            if verbose:
-                print(f"      ✓ Created: {bucket} → {multiplier}x")
-        
-        rules_processed += 1
+        new_rule = RewardRule(
+            card_product_id=card_product.id,
+            bucket=bucket,
+            multiplier=multiplier
+        )
+        session.add(new_rule)
+        rules_created += 1
+        if verbose:
+            print(f"      ✓ Rule: {bucket} → {multiplier}x")
+    
+    session.commit()
     
     # Build summary message
     if action == "created":
         msg = f"✅ Created with {rules_created} reward rules"
     else:
-        msg = f"🔄 Updated ({rules_updated} rules updated, {rules_created} rules added)"
+        msg = f"🔄 Updated with {rules_created} reward rules"
     
     return (True, msg)
 
 
+def cleanup_orphaned_cards(
+    session: Session,
+    imported_yaml_filenames: List[str],
+    verbose: bool = False
+) -> int:
+    """
+    Delete cards whose YAML files no longer exist.
+    
+    In the YAML-filename-based system, if a YAML file is deleted, the card should be deleted.
+    This ensures the database only contains cards that have corresponding YAML files.
+    
+    Args:
+        session: Database session
+        imported_yaml_filenames: List of YAML filenames that were successfully imported
+        verbose: Whether to show detailed logging
+        
+    Returns:
+        Number of cards deleted
+    """
+    if not imported_yaml_filenames:
+        return 0
+    
+    # Get all cards that have a yaml_filename set
+    all_cards_with_filename = session.exec(
+        select(CardProduct).where(CardProduct.yaml_filename.isnot(None))
+    ).all()
+    
+    # Create set of imported yaml_filenames for fast lookup
+    imported_set = set(imported_yaml_filenames)
+    
+    orphaned_count = 0
+    for card in all_cards_with_filename:
+        if card.yaml_filename not in imported_set:
+            # Check if any UserCards reference this card
+            user_cards_using_this = session.exec(
+                select(UserCard).where(UserCard.card_product_id == card.id)
+            ).all()
+            
+            # Check if any Transactions reference this card via market_winner_product_id
+            from app.models import Transaction
+            transactions_using_this = session.exec(
+                select(Transaction).where(Transaction.market_winner_product_id == card.id)
+            ).all()
+            
+            if len(user_cards_using_this) > 0 or len(transactions_using_this) > 0:
+                # Can't delete - has references
+                # Mark as unavailable instead
+                if card.is_available_in_market:
+                    card.is_available_in_market = False
+                    session.add(card)
+                    session.flush()  # Ensure the change is written
+                    orphaned_count += 1
+                    ref_count = len(user_cards_using_this) + len(transactions_using_this)
+                    if verbose:
+                        print(f"   ⚠️  Marked as unavailable (has {ref_count} reference(s)): {card.provider} {card.card_name}")
+            else:
+                # Safe to delete - no references
+                # First delete reward rules
+                rules = session.exec(
+                    select(RewardRule).where(RewardRule.card_product_id == card.id)
+                ).all()
+                for rule in rules:
+                    session.delete(rule)
+                session.flush()  # Ensure rules are deleted before deleting card
+                
+                # Then delete the card
+                session.delete(card)
+                session.flush()  # Ensure card deletion is written
+                orphaned_count += 1
+                if verbose:
+                    print(f"   🗑️  Deleted: {card.provider} {card.card_name} (YAML file removed)")
+    
+    if orphaned_count > 0:
+        session.commit()
+    
+    return orphaned_count
+
+
+def migrate_existing_cards(session: Session, yaml_files: List[Path], verbose: bool = False) -> dict:
+    """
+    Migrate existing cards to have yaml_filename populated.
+    
+    For cards without yaml_filename, try to match them to YAML files by:
+    1. Provider + card_name pattern matching
+    2. If no match found, leave as NULL (will be handled on next import)
+    
+    Args:
+        session: Database session
+        yaml_files: List of YAML file paths
+        verbose: Whether to show detailed logging
+        
+    Returns:
+        Dictionary with migration statistics
+    """
+    # Get all cards without yaml_filename
+    cards_without_filename = session.exec(
+        select(CardProduct).where(CardProduct.yaml_filename.is_(None))
+    ).all()
+    
+    if not cards_without_filename:
+        return {"migrated": 0, "skipped": 0}
+    
+    if verbose:
+        print(f"\n🔄 Migrating {len(cards_without_filename)} existing card(s) to yaml_filename system...")
+    
+    migrated = 0
+    skipped = 0
+    
+    # Build a map of (provider, card_name) -> yaml_filename from YAML files
+    yaml_map = {}
+    for yaml_path in yaml_files:
+        try:
+            card_data = load_card_from_yaml(yaml_path)
+            key = (card_data['provider'], card_data['card_name'])
+            yaml_map[key] = yaml_path.name
+        except Exception:
+            # Skip invalid YAML files
+            continue
+    
+    # Try to match existing cards to YAML files
+    for card in cards_without_filename:
+        key = (card.provider, card.card_name)
+        if key in yaml_map:
+            card.yaml_filename = yaml_map[key]
+            session.add(card)
+            migrated += 1
+            if verbose:
+                print(f"   ✓ Migrated: {card.provider} {card.card_name} → {yaml_map[key]}")
+        else:
+            # Try fuzzy matching by normalizing names
+            # e.g., "ICICI International" might match "icici_international.yaml"
+            card_name_normalized = card.card_name.lower().replace(' ', '_')
+            provider_normalized = card.provider.lower().replace(' ', '_')
+            
+            # Try to find matching YAML file by filename pattern
+            matched = False
+            for yaml_path in yaml_files:
+                filename_stem = yaml_path.stem.lower()
+                # Check if provider and card_name appear in filename
+                if provider_normalized in filename_stem and card_name_normalized in filename_stem:
+                    try:
+                        card_data = load_card_from_yaml(yaml_path)
+                        # Double-check it's actually the same card
+                        if (card_data['provider'] == card.provider and 
+                            card_data['card_name'] == card.card_name):
+                            card.yaml_filename = yaml_path.name
+                            session.add(card)
+                            migrated += 1
+                            matched = True
+                            if verbose:
+                                print(f"   ✓ Migrated (fuzzy): {card.provider} {card.card_name} → {yaml_path.name}")
+                            break
+                    except Exception:
+                        continue
+            
+            if not matched:
+                skipped += 1
+                if verbose:
+                    print(f"   ⏭️  Skipped: {card.provider} {card.card_name} (no matching YAML file)")
+    
+    if migrated > 0:
+        session.commit()
+    
+    return {"migrated": migrated, "skipped": skipped}
+
+
 def import_all_cards(
     update_existing: bool = False,
-    verbose: bool = False
+    verbose: bool = False,
+    cleanup_orphans: bool = True
 ) -> dict:
     """
     Import all card YAML files from the cards directory.
@@ -294,10 +459,20 @@ def import_all_cards(
         "success": 0,
         "failed": 0,
         "skipped": 0,
+        "orphaned": 0,
+        "migrated": 0,
         "errors": []
     }
     
+    imported_yaml_filenames = []  # Track yaml_filenames for cleanup
+    
     with Session(engine) as session:
+        # First, migrate existing cards without yaml_filename
+        migration_stats = migrate_existing_cards(session, yaml_files, verbose)
+        stats["migrated"] = migration_stats["migrated"]
+        if migration_stats["migrated"] > 0:
+            print(f"\n✅ Migrated {migration_stats['migrated']} existing card(s) to yaml_filename system")
+        
         for idx, yaml_path in enumerate(yaml_files, start=1):
             try:
                 print(f"{idx}. {yaml_path.stem}")
@@ -305,21 +480,21 @@ def import_all_cards(
                 # Load and validate YAML
                 card_data = load_card_from_yaml(yaml_path)
                 
-                # Import to database
+                # Import to database (always updates if yaml_filename matches)
                 success, message = import_card(
                     session,
                     card_data,
                     yaml_path.name,
-                    update_existing,
-                    verbose
+                    update_existing=True,  # Always update in new system
+                    verbose=verbose
                 )
                 
                 print(f"   {message}")
                 
-                if "Skipped" in message:
-                    stats["skipped"] += 1
-                else:
-                    stats["success"] += 1
+                # Track imported yaml_filenames for cleanup
+                imported_yaml_filenames.append(yaml_path.name)
+                
+                stats["success"] += 1
                 
             except CardImportError as e:
                 print(f"   ❌ Import failed: {e}")
@@ -329,6 +504,15 @@ def import_all_cards(
                 print(f"   ❌ Unexpected error: {e}")
                 stats["failed"] += 1
                 stats["errors"].append(f"{yaml_path.name}: {e}")
+        
+        # Always cleanup orphaned cards (cards whose YAML files no longer exist)
+        print("\n🧹 Cleaning up orphaned cards...")
+        orphaned_count = cleanup_orphaned_cards(session, imported_yaml_filenames, verbose)
+        stats["orphaned"] = orphaned_count
+        if orphaned_count > 0:
+            print(f"   Processed {orphaned_count} orphaned card(s)")
+        else:
+            print(f"   No orphaned cards found")
     
     return stats
 
@@ -346,8 +530,11 @@ def print_summary(stats: dict):
     print(f"\n📊 Results:")
     print(f"   Total files:     {stats['total']}")
     print(f"   ✅ Successful:   {stats['success']}")
-    print(f"   ⏭️  Skipped:      {stats['skipped']}")
+    if stats.get('migrated', 0) > 0:
+        print(f"   🔄 Migrated:      {stats['migrated']}")
     print(f"   ❌ Failed:       {stats['failed']}")
+    if stats.get('orphaned', 0) > 0:
+        print(f"   🗑️  Orphaned:      {stats['orphaned']}")
     
     if stats['errors']:
         print(f"\n⚠️  Errors encountered:")
@@ -385,13 +572,19 @@ def main():
         action='store_true',
         help='Show detailed logging for each card'
     )
+    parser.add_argument(
+        '--cleanup-orphans',
+        action='store_true',
+        help='Mark cards as unavailable if they are not in any YAML file'
+    )
     
     args = parser.parse_args()
     
     try:
         stats = import_all_cards(
             update_existing=args.update_existing,
-            verbose=args.verbose
+            verbose=args.verbose,
+            cleanup_orphans=args.cleanup_orphans
         )
         print_summary(stats)
         

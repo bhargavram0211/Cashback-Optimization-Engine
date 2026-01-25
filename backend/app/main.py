@@ -7,6 +7,7 @@ import os
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, SQLModel, text
+from sqlalchemy import inspect
 from typing import Dict, Optional
 from pydantic import BaseModel
 
@@ -241,6 +242,41 @@ async def optimize(
         )
 
 
+def migrate_add_yaml_filename_column():
+    """
+    Migration: Add yaml_filename column to card_products table if it doesn't exist.
+    This handles the schema change from the YAML-based card import system redesign.
+    """
+    inspector = inspect(engine)
+    
+    # Check if card_products table exists
+    if 'card_products' not in inspector.get_table_names():
+        return  # Table will be created by create_all()
+    
+    # Check if yaml_filename column exists
+    columns = [col['name'] for col in inspector.get_columns('card_products')]
+    
+    if 'yaml_filename' not in columns:
+        # Column doesn't exist - add it
+        print("   🔄 Adding yaml_filename column to card_products table...")
+        with Session(engine) as session:
+            # Add the column with ALTER TABLE
+            session.exec(text("""
+                ALTER TABLE card_products 
+                ADD COLUMN IF NOT EXISTS yaml_filename VARCHAR(255);
+            """))
+            session.commit()
+            # Create unique index
+            session.exec(text("""
+                CREATE UNIQUE INDEX IF NOT EXISTS ix_card_products_yaml_filename 
+                ON card_products(yaml_filename);
+            """))
+            session.commit()
+        print("   ✅ yaml_filename column added!")
+    else:
+        print("   ✅ yaml_filename column already exists")
+
+
 @app.on_event("startup")
 async def startup_event():
     """
@@ -254,6 +290,10 @@ async def startup_event():
     # Create all tables in the database
     print("📦 Creating database tables...")
     SQLModel.metadata.create_all(engine)
+    
+    # Run migration to add yaml_filename column if needed
+    migrate_add_yaml_filename_column()
+    
     print("✅ Database tables ready!")
     print(f"   - Tables: users, plaid_items, card_products, user_cards, reward_rules, transactions")
     
@@ -266,11 +306,14 @@ async def startup_event():
         sys.path.insert(0, str(scripts_dir))
         
         # Import and run the card importer
+        # New YAML-filename-based system: always updates existing cards and cleans up orphans
         import import_cards
-        stats = import_cards.import_all_cards(update_existing=False, verbose=False)
+        stats = import_cards.import_all_cards(update_existing=True, verbose=True, cleanup_orphans=True)
         
         if stats.get("failed", 0) == 0:
-            print(f"✅ Card library ready: {stats['success']} cards imported, {stats['skipped']} skipped")
+            migrated_msg = f", {stats.get('migrated', 0)} migrated" if stats.get('migrated', 0) > 0 else ""
+            orphaned_msg = f", {stats.get('orphaned', 0)} orphaned cleaned" if stats.get('orphaned', 0) > 0 else ""
+            print(f"✅ Card library ready: {stats['success']} cards imported{migrated_msg}{orphaned_msg}")
         else:
             print(f"⚠️  Card import completed with {stats['failed']} errors")
     except Exception as e:
