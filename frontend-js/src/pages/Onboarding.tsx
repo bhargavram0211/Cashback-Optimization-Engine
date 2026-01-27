@@ -275,7 +275,7 @@ export const Onboarding: React.FC = () => {
     setError(null);
 
     try {
-      const response = await authAPI.markOnboardingComplete();
+      await authAPI.markOnboardingComplete();
       
       // Update user state in store
       if (user) {

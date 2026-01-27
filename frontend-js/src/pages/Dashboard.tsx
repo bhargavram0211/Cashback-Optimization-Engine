@@ -28,8 +28,6 @@ export const Dashboard: React.FC = () => {
   // New state for enhanced dashboard features
   const [cardComparisons, setCardComparisons] = useState<CardComparison[]>([]);
   const [optimizationOpportunities, setOptimizationOpportunities] = useState<OptimizationOpportunity[]>([]);
-  const [isLoadingCardComparison, setIsLoadingCardComparison] = useState(false);
-  const [isLoadingOpportunities, setIsLoadingOpportunities] = useState(false);
   
   // Pagination state for Transaction Opportunities
   const [currentPage, setCurrentPage] = useState(1);
@@ -89,25 +87,19 @@ export const Dashboard: React.FC = () => {
       if (!user?.id || !report) return;
 
       // Fetch card comparison
-      setIsLoadingCardComparison(true);
       try {
         const comparisons = await analyticsAPI.getCardComparison();
         setCardComparisons(comparisons);
       } catch (err: any) {
         console.log('Error fetching card comparison:', err);
-      } finally {
-        setIsLoadingCardComparison(false);
       }
 
       // Fetch optimization opportunities
-      setIsLoadingOpportunities(true);
       try {
         const opportunities = await analyticsAPI.getOptimizationOpportunities();
         setOptimizationOpportunities(opportunities);
       } catch (err: any) {
         console.log('Error fetching optimization opportunities:', err);
-      } finally {
-        setIsLoadingOpportunities(false);
       }
     };
 
@@ -178,7 +170,7 @@ export const Dashboard: React.FC = () => {
       setTimeout(async () => {
         if (user?.id) {
           try {
-            const data = await reportsAPI.getSavingsReport(user.id);
+            const data = await reportsAPI.getSavingsReport();
             setReport(data);
           } catch (err: any) {
             console.log('Error refreshing report after optimization:', err);
@@ -235,7 +227,7 @@ export const Dashboard: React.FC = () => {
           setTimeout(async () => {
             if (user?.id) {
               try {
-                const data = await reportsAPI.getSavingsReport(user.id);
+                const data = await reportsAPI.getSavingsReport();
                 setReport(data);
               } catch (err: any) {
                 console.log('Error refreshing report after sync and optimize:', err);
@@ -247,7 +239,7 @@ export const Dashboard: React.FC = () => {
           // Still refresh dashboard even if optimize fails
           if (user?.id) {
             try {
-              const data = await reportsAPI.getSavingsReport(user.id);
+              const data = await reportsAPI.getSavingsReport();
               setReport(data);
             } catch (err: any) {
               console.log('Error refreshing report:', err);

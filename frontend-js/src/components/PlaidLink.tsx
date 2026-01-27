@@ -1,6 +1,11 @@
 import React, { useEffect, useCallback } from 'react';
 import { usePlaidLink } from 'react-plaid-link';
 import type { 
+  PlaidLinkOnSuccessMetadata as LibrarySuccessMetadata,
+  PlaidLinkOnExitMetadata as LibraryExitMetadata,
+  PlaidLinkError
+} from 'react-plaid-link';
+import type { 
   PlaidLinkOnSuccessMetadata, 
   PlaidLinkOnExitMetadata,
   PlaidLinkExitReason 
@@ -26,23 +31,48 @@ export const PlaidLink: React.FC<PlaidLinkProps> = ({
   onEvent,
 }) => {
   const onSuccessCallback = useCallback(
-    (publicToken: string, metadata: PlaidLinkOnSuccessMetadata) => {
+    (publicToken: string, metadata: LibrarySuccessMetadata) => {
       console.log('[PlaidLink] onSuccess:', { publicToken, metadata });
-      onSuccess(publicToken, metadata);
+      // Transform library metadata to custom type
+      const customMetadata: PlaidLinkOnSuccessMetadata = {
+        institution: metadata.institution ? {
+          institution_id: metadata.institution.institution_id,
+          name: metadata.institution.name
+        } : { institution_id: '', name: '' },
+        accounts: metadata.accounts.map(acc => ({
+          id: acc.id,
+          name: acc.name,
+          mask: acc.mask || '',
+          type: acc.type,
+          subtype: acc.subtype || ''
+        })),
+        link_session_id: metadata.link_session_id
+      };
+      onSuccess(publicToken, customMetadata);
     },
     [onSuccess]
   );
 
   const onExitCallback = useCallback(
-    (err: Error | null, metadata: PlaidLinkOnExitMetadata | null) => {
-      console.log('[PlaidLink] onExit:', { err, metadata });
+    (error: PlaidLinkError | null, metadata: LibraryExitMetadata | null) => {
+      console.log('[PlaidLink] onExit:', { error, metadata });
       
       if (onExit) {
-        onExit(err, metadata);
+        // Transform library error to Error type
+        const err: Error | null = error ? new Error(error.error_message || 'Plaid Link error') : null;
+        // Transform library metadata to custom type
+        const customMetadata: PlaidLinkOnExitMetadata | null = metadata ? {
+          institution: metadata.institution ? {
+            institution_id: metadata.institution.institution_id,
+            name: metadata.institution.name
+          } : null,
+          status: metadata.status || null
+        } : null;
+        onExit(err, customMetadata);
       } else {
         // Default error handling
-        if (err) {
-          console.error('[PlaidLink] Error:', err);
+        if (error) {
+          console.error('[PlaidLink] Error:', error);
         }
         if (metadata?.status) {
           console.log('[PlaidLink] Exit status:', metadata.status);

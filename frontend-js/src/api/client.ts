@@ -20,7 +20,8 @@ import type {
   OptimizationOpportunity
 } from '../types';
 
-const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+// Use relative URL - Nginx will proxy /api/* to backend
+const API_URL = '/api';
 
 export const apiClient = axios.create({
   baseURL: API_URL,
