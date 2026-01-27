@@ -26,6 +26,13 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+  
+  // Auto-close sidebar when navigating on mobile
+  useEffect(() => {
+    if (window.innerWidth < 768) {
+      setIsSidebarCollapsed(true);
+    }
+  }, [location.pathname]);
 
   const handleLogout = async () => {
     await logout();
@@ -72,8 +79,35 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
+      {/* Mobile Menu Button - Only visible when sidebar is hidden on mobile */}
+      {isSidebarCollapsed && (
+        <button
+          onClick={() => setIsSidebarCollapsed(false)}
+          className="fixed top-4 left-4 z-40 md:hidden bg-purple-600 text-white p-3 rounded-full shadow-lg hover:bg-purple-700 transition-colors"
+          aria-label="Open menu"
+        >
+          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+      )}
+
+      {/* Overlay for mobile when sidebar is open */}
+      {!isSidebarCollapsed && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+          onClick={() => setIsSidebarCollapsed(true)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className={`${isSidebarCollapsed ? 'w-20' : 'w-64'} bg-white shadow-lg flex flex-col h-screen sticky top-0 transition-all duration-300`}>
+      <aside className={`
+        ${isSidebarCollapsed ? 'w-20' : 'w-64'}
+        bg-white shadow-lg flex flex-col h-screen sticky top-0 transition-all duration-300
+        ${isSidebarCollapsed ? 'hidden md:flex' : 'flex'}
+        ${!isSidebarCollapsed && 'fixed md:sticky z-50 inset-y-0 left-0'}
+      `}>
         {/* Header */}
         <div className="p-6 border-b border-gray-200">
           {/* Toggle Button */}
@@ -187,7 +221,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto">
+      <main className={`flex-1 overflow-auto ${isSidebarCollapsed ? 'pt-16 md:pt-0' : ''}`}>
         {children}
       </main>
     </div>

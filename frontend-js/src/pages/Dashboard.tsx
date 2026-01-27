@@ -395,11 +395,11 @@ export const Dashboard: React.FC = () => {
     : 0;
 
   return (
-    <div className="p-8">
+    <div className="px-3 md:px-6 py-4 md:py-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+        <div className="mb-4 md:mb-6">
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
             💳 Cashback Optimization Dashboard
           </h1>
           <p className="text-lg text-gray-700 mb-4">
@@ -514,7 +514,7 @@ export const Dashboard: React.FC = () => {
 
         {/* Top-Level Metrics */}
         <div className="mb-8">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-4">📊 Your Spending Summary</h2>
+          <h2 className="text-xl md:text-2xl font-semibold text-gray-900 mb-3 md:mb-4">📊 Your Spending Summary</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <MetricCard
               label="💰 Total Spent"
@@ -540,8 +540,8 @@ export const Dashboard: React.FC = () => {
         {/* Category Breakdown */}
         {category_breakdown && category_breakdown.length > 0 && (
           <div className="mb-8">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-4">📈 Lost Savings by Category</h2>
-            <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-xl md:text-2xl font-semibold text-gray-900 mb-3 md:mb-4">📈 Lost Savings by Category</h2>
+            <div className="bg-white rounded-lg shadow p-4 md:p-6">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Chart */}
                 <div className="lg:col-span-2">
@@ -579,8 +579,8 @@ export const Dashboard: React.FC = () => {
         {/* Top Recommendation */}
         {top_recommendation && (
           <div className="mb-8">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-4">🏆 Top Card Recommendation</h2>
-            <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-xl md:text-2xl font-semibold text-gray-900 mb-3 md:mb-4">🏆 Top Card Recommendation</h2>
+            <div className="bg-white rounded-lg shadow p-4 md:p-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="md:col-span-2">
                   <h3 className="text-2xl font-bold text-gray-900 mb-2">
@@ -617,12 +617,13 @@ export const Dashboard: React.FC = () => {
         {/* Card Comparison Section */}
         {cardComparisons.length > 0 && (
           <div className="mb-8">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-4">💳 Card Performance Comparison</h2>
-            <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-xl md:text-2xl font-semibold text-gray-900 mb-3 md:mb-4">💳 Card Performance Comparison</h2>
+            <div className="bg-white rounded-lg shadow p-4 md:p-6">
               <p className="text-gray-700 mb-4">
                 Compare your cards by potential savings if used optimally for the transactions where they're the best choice.
               </p>
-              <div className="overflow-x-auto">
+              {/* Desktop: Table */}
+              <div className="hidden md:block overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
@@ -660,6 +661,29 @@ export const Dashboard: React.FC = () => {
                   </tbody>
                 </table>
               </div>
+
+              {/* Mobile: Cards */}
+              <div className="md:hidden space-y-3">
+                {cardComparisons.map((card, index) => (
+                  <div key={`${card.provider}-${card.card_name}-${index}`} className="bg-gray-50 rounded-lg p-4 border border-gray-200 space-y-2">
+                    <div className="font-semibold text-gray-900">
+                      {card.provider} {card.card_name}
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <div className="text-gray-500 text-xs">Optimal Transactions</div>
+                        <div className="font-medium">{card.optimal_transaction_count}</div>
+                      </div>
+                      <div>
+                        <div className="text-gray-500 text-xs">Potential Savings</div>
+                        <div className="font-semibold text-green-600">
+                          ${card.potential_savings.toFixed(2)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}
@@ -675,94 +699,155 @@ export const Dashboard: React.FC = () => {
           
           return (
             <div className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">🎯 Transaction Opportunities</h2>
-              <div className="bg-white rounded-lg shadow p-6">
+              <h2 className="text-xl md:text-2xl font-semibold text-gray-900 mb-3 md:mb-4">🎯 Transaction Opportunities</h2>
+              <div className="bg-white rounded-lg shadow p-4 md:p-6">
                 <p className="text-gray-700 mb-4">
                   Top transactions where using a different card would have saved you money. Showing {maxOpportunities} opportunities.
                 </p>
-                <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Date
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Merchant
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Category
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Amount
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Card Used
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Lost Savings
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Recommended Card
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {paginatedOpportunities.map((opp, index) => (
-                      <tr key={`${opp.merchant_name}-${opp.date}-${index}`} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                          {opp.date ? new Date(opp.date).toLocaleDateString() : 'N/A'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {opp.merchant_name || 'Unknown'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                          {opp.internal_bucket || 'N/A'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                          ${Math.abs(opp.amount).toFixed(2)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                          {opp.used_card_provider && opp.used_card_name
-                            ? `${opp.used_card_provider} ${opp.used_card_name}`
-                            : 'Unknown'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-red-600">
-                          ${opp.lost_savings.toFixed(2)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                          {opp.best_card_provider && opp.best_card_name
-                            ? `${opp.best_card_provider} ${opp.best_card_name}`
-                            : 'N/A'}
-                        </td>
+                {/* Desktop: Table View */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Date
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Merchant
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Category
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Amount
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Card Used
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Lost Savings
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Recommended Card
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {paginatedOpportunities.map((opp, index) => (
+                        <tr key={`${opp.merchant_name}-${opp.date}-${index}`} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                            {opp.date ? new Date(opp.date).toLocaleDateString() : 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {opp.merchant_name || 'Unknown'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                            {opp.internal_bucket || 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                            ${Math.abs(opp.amount).toFixed(2)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                            {opp.used_card_provider && opp.used_card_name
+                              ? `${opp.used_card_provider} ${opp.used_card_name}`
+                              : 'Unknown'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-red-600">
+                            ${opp.lost_savings.toFixed(2)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                            {opp.best_card_provider && opp.best_card_name
+                              ? `${opp.best_card_provider} ${opp.best_card_name}`
+                              : 'N/A'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                
+                {/* Mobile: Card View */}
+                <div className="md:hidden space-y-3">
+                  {paginatedOpportunities.map((opp, index) => (
+                    <div 
+                      key={`${opp.merchant_name}-${opp.date}-${index}`} 
+                      className="bg-gray-50 rounded-lg p-4 border border-gray-200 space-y-3"
+                    >
+                      {/* Header: Merchant + Lost Savings */}
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="font-semibold text-gray-900 text-base">
+                            {opp.merchant_name || 'Unknown'}
+                          </div>
+                          <div className="text-sm text-gray-600 mt-1">
+                            {opp.date ? new Date(opp.date).toLocaleDateString() : 'N/A'}
+                          </div>
+                        </div>
+                        <div className="text-right ml-4">
+                          <div className="font-bold text-red-600 text-lg">
+                            ${opp.lost_savings.toFixed(2)}
+                          </div>
+                          <div className="text-xs text-gray-500 uppercase">Lost</div>
+                        </div>
+                      </div>
+                      
+                      {/* Transaction Details */}
+                      <div className="grid grid-cols-2 gap-2 text-sm pt-2 border-t border-gray-200">
+                        <div>
+                          <div className="text-gray-500 text-xs">Amount</div>
+                          <div className="font-medium">${Math.abs(opp.amount).toFixed(2)}</div>
+                        </div>
+                        <div>
+                          <div className="text-gray-500 text-xs">Category</div>
+                          <div className="font-medium">{opp.internal_bucket || 'N/A'}</div>
+                        </div>
+                      </div>
+                      
+                      {/* Card Information */}
+                      <div className="space-y-2 pt-2 border-t border-gray-200">
+                        <div>
+                          <div className="text-xs text-gray-500 mb-1">Card Used</div>
+                          <div className="text-sm font-medium text-gray-700">
+                            {opp.used_card_provider && opp.used_card_name 
+                              ? `${opp.used_card_provider} ${opp.used_card_name}` 
+                              : 'Unknown'}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500 mb-1">Recommended Card</div>
+                          <div className="text-sm font-semibold text-purple-600">
+                            {opp.best_card_provider && opp.best_card_name 
+                              ? `${opp.best_card_provider} ${opp.best_card_name}` 
+                              : 'N/A'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               
               {/* Pagination Controls */}
               {totalPages > 1 && (
-                <div className="flex flex-col sm:flex-row items-center justify-between mt-6 gap-4">
-                  <div className="text-sm text-gray-700">
-                    Showing {startIndex + 1} to {Math.min(endIndex, maxOpportunities)} of {maxOpportunities} opportunities
+                <div className="flex flex-col sm:flex-row items-center justify-between mt-4 md:mt-6 gap-3 md:gap-4">
+                  <div className="text-xs md:text-sm text-gray-700 text-center sm:text-left">
+                    Showing {startIndex + 1} to {Math.min(endIndex, maxOpportunities)} of {maxOpportunities}
                   </div>
-                  <div className="flex items-center gap-2 flex-wrap justify-center">
+                  <div className="flex items-center gap-1 md:gap-2 flex-wrap justify-center">
                     <button
                       onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                       disabled={currentPage === 1}
-                      className="px-4 py-2 min-h-[44px] border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="px-3 md:px-4 py-2 min-h-[44px] border border-gray-300 rounded-lg text-xs md:text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
-                      Previous
+                      Prev
                     </button>
                     
                     {/* Page numbers */}
-                    <div className="flex gap-1 flex-wrap">
+                    <div className="flex gap-1">
                       {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
                         <button
                           key={page}
                           onClick={() => setCurrentPage(page)}
-                          className={`px-3 py-2 min-h-[44px] min-w-[44px] rounded-lg text-sm font-medium transition-colors ${
+                          className={`px-2 md:px-3 py-2 min-h-[44px] min-w-[44px] rounded-lg text-xs md:text-sm font-medium transition-colors ${
                             currentPage === page
                               ? 'bg-purple-600 text-white'
                               : 'text-gray-700 hover:bg-gray-100'
@@ -776,7 +861,7 @@ export const Dashboard: React.FC = () => {
                     <button
                       onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                       disabled={currentPage === totalPages}
-                      className="px-4 py-2 min-h-[44px] border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="px-3 md:px-4 py-2 min-h-[44px] border border-gray-300 rounded-lg text-xs md:text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                       Next
                     </button>

@@ -96,7 +96,7 @@ export const IdentifyCards: React.FC = () => {
 
   if (error) {
     return (
-      <div className="p-8">
+      <div className="px-3 md:px-6 py-4 md:py-8">
         <div className="max-w-7xl mx-auto">
           <ErrorMessage message={error} />
         </div>
@@ -107,10 +107,10 @@ export const IdentifyCards: React.FC = () => {
   // Empty state - all cards identified
   if (unidentifiedCards.length === 0) {
     return (
-      <div className="p-8">
+      <div className="px-3 md:px-6 py-4 md:py-8">
         <div className="max-w-7xl mx-auto">
-          <div className="bg-white rounded-lg shadow p-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">🔍 Identify Your Cards</h1>
+          <div className="bg-white rounded-lg shadow p-4 md:p-8">
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">🔍 Identify Your Cards</h1>
             <p className="text-lg text-gray-700 mb-6">
               Link your bank accounts to specific card products so we can calculate accurate rewards.
             </p>
@@ -138,11 +138,11 @@ export const IdentifyCards: React.FC = () => {
   }
 
   return (
-    <div className="p-8">
+    <div className="px-3 md:px-6 py-4 md:py-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">🔍 Identify Your Cards</h1>
+        <div className="mb-4 md:mb-6">
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">🔍 Identify Your Cards</h1>
           <p className="text-lg text-gray-700 mb-4">
             Link your bank accounts to specific card products so we can calculate accurate rewards.
           </p>

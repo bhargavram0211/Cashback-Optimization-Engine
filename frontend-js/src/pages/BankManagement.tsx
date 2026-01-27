@@ -172,10 +172,10 @@ export const BankManagement: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen bg-gray-50 px-3 md:px-6 py-4 md:py-8">
       <div className="max-w-6xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Manage Banks</h1>
+        <div className="mb-4 md:mb-8">
+          <h1 className="text-2xl md:text-4xl font-bold text-gray-900 mb-2">Manage Banks</h1>
           <p className="text-gray-600">
             View, add, and remove your connected bank accounts.
           </p>
@@ -256,7 +256,7 @@ export const BankManagement: React.FC = () => {
 
         {/* Banks List */}
         {!isLoading && plaidItems.length > 0 && (
-          <div className="space-y-4">
+          <div className="space-y-3 md:space-y-4">
             {plaidItems.map((item) => (
               <div key={item.id} className="bg-white rounded-lg shadow-lg p-6">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">

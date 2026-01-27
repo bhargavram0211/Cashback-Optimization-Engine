@@ -137,11 +137,11 @@ export const CardDiscovery: React.FC = () => {
   }
 
   return (
-    <div className="p-8">
+    <div className="px-3 md:px-6 py-4 md:py-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">🔍 Card Discovery</h1>
+        <div className="mb-4 md:mb-6">
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">🔍 Card Discovery</h1>
           <p className="text-lg text-gray-700">
             Explore credit cards and find the best ones for your spending.
           </p>
