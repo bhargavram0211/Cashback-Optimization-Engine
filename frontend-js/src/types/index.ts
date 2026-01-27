@@ -151,6 +151,8 @@ export interface OptimizationOpportunity {
   lost_savings: number;
   best_card_provider: string | null;
   best_card_name: string | null;
+  used_card_provider: string | null;
+  used_card_name: string | null;
 }
 
 export interface SyncResponse {

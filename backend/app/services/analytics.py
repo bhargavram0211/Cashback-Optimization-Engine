@@ -236,11 +236,13 @@ class AnalyticsService:
         """
         # Join pattern: Transaction -> best_user_card (UserCard) -> CardProduct
         # AND Transaction -> used_user_card (UserCard) -> PlaidItem (for user filter)
-        # We need to alias the UserCards to differentiate
+        # We need to alias the UserCards and CardProducts to differentiate
         from sqlalchemy.orm import aliased
         
         BestUserCard = aliased(UserCard)
         UsedUserCard = aliased(UserCard)
+        BestCardProduct = aliased(CardProduct)
+        UsedCardProduct = aliased(CardProduct)
         
         query = (
             select(
@@ -251,13 +253,16 @@ class AnalyticsService:
                 Transaction.actual_cashback,
                 Transaction.best_possible_cashback,
                 Transaction.lost_savings,
-                CardProduct.provider,
-                CardProduct.card_name
+                BestCardProduct.provider,
+                BestCardProduct.card_name,
+                UsedCardProduct.provider,
+                UsedCardProduct.card_name
             )
-            .join(BestUserCard, Transaction.best_user_card_id == BestUserCard.id)
-            .join(CardProduct, BestUserCard.card_product_id == CardProduct.id)
             .join(UsedUserCard, Transaction.user_card_id == UsedUserCard.id)
             .join(PlaidItem, UsedUserCard.plaid_item_id == PlaidItem.id)
+            .join(UsedCardProduct, UsedUserCard.card_product_id == UsedCardProduct.id)
+            .join(BestUserCard, Transaction.best_user_card_id == BestUserCard.id)
+            .join(BestCardProduct, BestUserCard.card_product_id == BestCardProduct.id)
             .where(PlaidItem.user_id == UUID(user_id))
             .where(Transaction.is_analyzable == True)
             .where(Transaction.lost_savings > 0)
@@ -278,7 +283,9 @@ class AnalyticsService:
                 "best_possible_cashback": float(row[5]) if row[5] else 0.0,
                 "lost_savings": float(row[6]) if row[6] else 0.0,
                 "best_card_provider": row[7],
-                "best_card_name": row[8]
+                "best_card_name": row[8],
+                "used_card_provider": row[9],
+                "used_card_name": row[10]
             })
         
         return opportunities

@@ -44,6 +44,7 @@ app.add_middleware(
         "http://localhost:8501",  # Streamlit (for backward compatibility)
         "http://127.0.0.1:3000",
         "http://127.0.0.1:8501",
+        "http://10.119.146.195:3000",
     ],
     allow_credentials=True,
     allow_methods=["*"],

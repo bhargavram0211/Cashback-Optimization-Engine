@@ -68,7 +68,7 @@ services:
     platform: linux/arm64
     container_name: cashback_frontend_js
     environment:
-      VITE_BACKEND_URL: http://localhost:8000
+      VITE_BACKEND_URL: http://10.119.146.195:8000
     ports:
       - "3000:3000"
     depends_on:

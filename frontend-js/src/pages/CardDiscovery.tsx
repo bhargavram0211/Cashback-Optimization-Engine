@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { cardsAPI } from '../api/client';
 import { CardProductCard } from '../components/CardProductCard';
 import { LoadingSpinner } from '../components/LoadingSpinner';
@@ -16,20 +16,6 @@ const CATEGORIES = [
   'ENTERTAINMENT',
 ] as const;
 
-const getCategoryIcon = (bucket: string): string => {
-  const icons: Record<string, string> = {
-    DINING: '🍽️',
-    GROCERY: '🛒',
-    TRAVEL: '✈️',
-    GAS: '⛽',
-    DRUGSTORE: '💊',
-    ONLINE_SHOPPING: '🛍️',
-    ENTERTAINMENT: '🎬',
-    GENERAL: '💳',
-  };
-  return icons[bucket] || '💳';
-};
-
 type SortOption = 'provider' | 'base_rate' | 'num_categories';
 
 export const CardDiscovery: React.FC = () => {
@@ -39,6 +25,8 @@ export const CardDiscovery: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<SortOption>('provider');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchCards = async () => {
@@ -65,6 +53,30 @@ export const CardDiscovery: React.FC = () => {
 
     fetchCards();
   }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const toggleCategory = (category: string) => {
+    setCategoryFilter(prev =>
+      prev.includes(category)
+        ? prev.filter(c => c !== category)
+        : [...prev, category]
+    );
+  };
+
+  const clearFilters = () => {
+    setCategoryFilter([]);
+  };
 
   // Filter and sort cards
   const filteredAndSortedCards = useMemo(() => {
@@ -144,9 +156,9 @@ export const CardDiscovery: React.FC = () => {
 
         {/* Search and Filters */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* Search */}
-            <div className="md:col-span-2">
+            <div className="lg:col-span-2">
               <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-2">
                 🔍 Search by provider or card name
               </label>
@@ -160,54 +172,95 @@ export const CardDiscovery: React.FC = () => {
               />
             </div>
 
-            {/* Category Filter */}
-            <div>
-              <label htmlFor="category-filter" className="block text-sm font-medium text-gray-700 mb-2">
+            {/* Category Filter - Custom Dropdown */}
+            <div className="relative" ref={dropdownRef}>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Filter by category
               </label>
-              <select
-                id="category-filter"
-                multiple
-                value={categoryFilter}
-                onChange={(e) => {
-                  const selected = Array.from(e.target.selectedOptions, (option) => option.value);
-                  setCategoryFilter(selected);
-                }}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-                size={3}
+              
+              {/* Selected Categories Display */}
+              <button
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent bg-white text-left flex items-center justify-between"
               >
-                {CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {getCategoryIcon(cat)} {cat}
-                  </option>
-                ))}
-              </select>
+                <span className="text-sm text-gray-700">
+                  {categoryFilter.length === 0
+                    ? 'Select categories...'
+                    : `${categoryFilter.length} selected`}
+                </span>
+                <span className="text-gray-500">{isDropdownOpen ? '▲' : '▼'}</span>
+              </button>
+
+              {/* Selected Chips */}
               {categoryFilter.length > 0 && (
-                <button
-                  onClick={() => setCategoryFilter([])}
-                  className="mt-2 text-sm text-purple-600 hover:text-purple-700"
-                >
-                  Clear filters
-                </button>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {categoryFilter.map((cat) => (
+                    <span
+                      key={cat}
+                      className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-purple-100 text-purple-800"
+                    >
+                      {cat.replace(/_/g, ' ')}
+                      <button
+                        onClick={() => toggleCategory(cat)}
+                        className="ml-2 text-purple-600 hover:text-purple-800"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Dropdown Menu */}
+              {isDropdownOpen && (
+                <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                  <div className="p-2">
+                    {CATEGORIES.map((cat) => (
+                      <label
+                        key={cat}
+                        className="flex items-center px-3 py-2 hover:bg-gray-50 rounded cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={categoryFilter.includes(cat)}
+                          onChange={() => toggleCategory(cat)}
+                          className="mr-3 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                        />
+                        <span className="text-sm text-gray-700">{cat.replace(/_/g, ' ')}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {categoryFilter.length > 0 && (
+                    <div className="border-t border-gray-200 p-2">
+                      <button
+                        onClick={clearFilters}
+                        className="w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded"
+                      >
+                        Clear All
+                      </button>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
 
-            {/* Sort */}
-            <div>
-              <label htmlFor="sort" className="block text-sm font-medium text-gray-700 mb-2">
-                Sort by
-              </label>
-              <select
-                id="sort"
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as SortOption)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-              >
-                <option value="provider">Provider (A-Z)</option>
-                <option value="base_rate">Highest Base Rate</option>
-                <option value="num_categories">Most Categories</option>
-              </select>
-            </div>
+          </div>
+
+          {/* Sort - Separate row */}
+          <div className="mt-4">
+            <label htmlFor="sort" className="block text-sm font-medium text-gray-700 mb-2">
+              Sort by
+            </label>
+            <select
+              id="sort"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortOption)}
+              className="w-full md:w-64 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+            >
+              <option value="provider">Provider (A-Z)</option>
+              <option value="base_rate">Highest Base Rate</option>
+              <option value="num_categories">Most Categories</option>
+            </select>
           </div>
         </div>
 
@@ -227,13 +280,13 @@ export const CardDiscovery: React.FC = () => {
                 setSearchQuery('');
                 setCategoryFilter([]);
               }}
-              className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+              className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 min-h-[44px]"
             >
               Clear Filters
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredAndSortedCards.map((card) => (
               <CardProductCard key={card.id} card={card} />
             ))}

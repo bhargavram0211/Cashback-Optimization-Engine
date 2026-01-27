@@ -166,8 +166,8 @@ export const IdentifyCards: React.FC = () => {
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                <div className="md:col-span-3">
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-end">
+                <div className="lg:col-span-3">
                   <label htmlFor={`select-${card.id}`} className="block text-sm font-medium text-gray-700 mb-2">
                     Which card is this?
                   </label>
@@ -177,7 +177,7 @@ export const IdentifyCards: React.FC = () => {
                     onChange={(e) =>
                       setSelectedProducts({ ...selectedProducts, [card.id]: e.target.value })
                     }
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                    className="w-full px-4 py-3 h-11 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
                   >
                     {cardProducts.map((product) => (
                       <option key={product.id} value={product.id}>
@@ -187,11 +187,11 @@ export const IdentifyCards: React.FC = () => {
                   </select>
                 </div>
 
-                <div className="md:col-span-1">
+                <div className="lg:col-span-1">
                   <button
                     onClick={() => handleIdentify(card.id)}
                     disabled={identifyingCardId === card.id || !selectedProducts[card.id]}
-                    className="w-full px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg font-semibold hover:shadow-lg transition-shadow disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                    className="w-full px-4 py-3 min-h-[44px] bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg font-semibold hover:shadow-lg transition-shadow disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                   >
                     {identifyingCardId === card.id ? (
                       <>

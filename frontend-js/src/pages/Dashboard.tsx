@@ -30,6 +30,10 @@ export const Dashboard: React.FC = () => {
   const [optimizationOpportunities, setOptimizationOpportunities] = useState<OptimizationOpportunity[]>([]);
   const [isLoadingCardComparison, setIsLoadingCardComparison] = useState(false);
   const [isLoadingOpportunities, setIsLoadingOpportunities] = useState(false);
+  
+  // Pagination state for Transaction Opportunities
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
     const fetchReport = async () => {
@@ -408,7 +412,7 @@ export const Dashboard: React.FC = () => {
               <button
                 onClick={handleSyncClick}
                 disabled={isSyncing || isOptimizing}
-                className="px-6 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg font-semibold hover:shadow-lg transition-shadow disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                className="w-full sm:w-auto px-6 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg font-semibold hover:shadow-lg transition-shadow disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-h-[44px]"
               >
                 {isSyncing ? (
                   <>
@@ -424,7 +428,7 @@ export const Dashboard: React.FC = () => {
               <button
                 onClick={handleOptimize}
                 disabled={isOptimizing || isSyncing}
-                className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-semibold hover:shadow-lg transition-shadow disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                className="w-full sm:w-auto px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-semibold hover:shadow-lg transition-shadow disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-h-[44px]"
               >
                 {isOptimizing ? (
                   <>
@@ -661,14 +665,22 @@ export const Dashboard: React.FC = () => {
         )}
 
         {/* Optimization Opportunities Table */}
-        {optimizationOpportunities.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-4">🎯 Transaction Opportunities</h2>
-            <div className="bg-white rounded-lg shadow p-6">
-              <p className="text-gray-700 mb-4">
-                Top transactions where using a different card would have saved you money. Limited to top 20 opportunities.
-              </p>
-              <div className="overflow-x-auto">
+        {optimizationOpportunities.length > 0 && (() => {
+          // Pagination logic
+          const maxOpportunities = Math.min(optimizationOpportunities.length, 50);
+          const totalPages = Math.ceil(maxOpportunities / itemsPerPage);
+          const startIndex = (currentPage - 1) * itemsPerPage;
+          const endIndex = startIndex + itemsPerPage;
+          const paginatedOpportunities = optimizationOpportunities.slice(0, 50).slice(startIndex, endIndex);
+          
+          return (
+            <div className="mb-8">
+              <h2 className="text-2xl font-semibold text-gray-900 mb-4">🎯 Transaction Opportunities</h2>
+              <div className="bg-white rounded-lg shadow p-6">
+                <p className="text-gray-700 mb-4">
+                  Top transactions where using a different card would have saved you money. Showing {maxOpportunities} opportunities.
+                </p>
+                <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
@@ -685,6 +697,9 @@ export const Dashboard: React.FC = () => {
                         Amount
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Card Used
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Lost Savings
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -693,7 +708,7 @@ export const Dashboard: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {optimizationOpportunities.slice(0, 20).map((opp, index) => (
+                    {paginatedOpportunities.map((opp, index) => (
                       <tr key={`${opp.merchant_name}-${opp.date}-${index}`} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                           {opp.date ? new Date(opp.date).toLocaleDateString() : 'N/A'}
@@ -706,6 +721,11 @@ export const Dashboard: React.FC = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                           ${Math.abs(opp.amount).toFixed(2)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                          {opp.used_card_provider && opp.used_card_name
+                            ? `${opp.used_card_provider} ${opp.used_card_name}`
+                            : 'Unknown'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-red-600">
                           ${opp.lost_savings.toFixed(2)}
@@ -720,9 +740,53 @@ export const Dashboard: React.FC = () => {
                   </tbody>
                 </table>
               </div>
+              
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between mt-6 gap-4">
+                  <div className="text-sm text-gray-700">
+                    Showing {startIndex + 1} to {Math.min(endIndex, maxOpportunities)} of {maxOpportunities} opportunities
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap justify-center">
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                      className="px-4 py-2 min-h-[44px] border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Previous
+                    </button>
+                    
+                    {/* Page numbers */}
+                    <div className="flex gap-1 flex-wrap">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page)}
+                          className={`px-3 py-2 min-h-[44px] min-w-[44px] rounded-lg text-sm font-medium transition-colors ${
+                            currentPage === page
+                              ? 'bg-purple-600 text-white'
+                              : 'text-gray-700 hover:bg-gray-100'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      ))}
+                    </div>
+                    
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                      className="px-4 py-2 min-h-[44px] border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-        )}
+          );
+        })()}
       </div>
     </div>
   );

@@ -205,7 +205,7 @@ export const BankManagement: React.FC = () => {
           <button
             onClick={handleCreateLinkToken}
             disabled={isCreatingLinkToken}
-            className="px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg font-semibold hover:shadow-lg transition-shadow disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+            className="w-full sm:w-auto px-6 py-3 min-h-[44px] bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg font-semibold hover:shadow-lg transition-shadow disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
           >
             {isCreatingLinkToken ? (
               <>
@@ -259,7 +259,7 @@ export const BankManagement: React.FC = () => {
           <div className="space-y-4">
             {plaidItems.map((item) => (
               <div key={item.id} className="bg-white rounded-lg shadow-lg p-6">
-                <div className="flex items-start justify-between">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div className="flex-1">
                     <div className="flex items-center mb-2">
                       <div className="text-3xl mr-3">🏦</div>
@@ -279,11 +279,11 @@ export const BankManagement: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                     <button
                       onClick={() => handleSyncBank(item.id)}
                       disabled={syncingItemId === item.id || removingItemId === item.id}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                      className="w-full sm:w-auto px-4 py-2 min-h-[44px] bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                     >
                       {syncingItemId === item.id ? (
                         <>
@@ -299,7 +299,7 @@ export const BankManagement: React.FC = () => {
                     <button
                       onClick={() => handleRemoveBank(item.id)}
                       disabled={removingItemId === item.id || syncingItemId === item.id}
-                      className="px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                      className="w-full sm:w-auto px-4 py-2 min-h-[44px] bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                     >
                       {removingItemId === item.id ? (
                         <>

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 
@@ -10,6 +10,22 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
+  
+  // Auto-collapse sidebar on mobile
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        setIsSidebarCollapsed(true);
+      }
+    };
+    
+    // Initial check
+    handleResize();
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const handleLogout = async () => {
     await logout();
@@ -57,26 +73,50 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar */}
-      <aside className="w-64 bg-white shadow-lg flex flex-col h-screen sticky top-0">
+      <aside className={`${isSidebarCollapsed ? 'w-20' : 'w-64'} bg-white shadow-lg flex flex-col h-screen sticky top-0 transition-all duration-300`}>
         {/* Header */}
         <div className="p-6 border-b border-gray-200">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">🧭 Navigation</h2>
-          
-          {/* User Info */}
-          <div className="mb-4">
-            <p className="font-semibold text-gray-900">
-              👤 {user?.name || user?.email}
-            </p>
-            <p className="text-sm text-gray-600">{user?.email}</p>
-          </div>
-
-          {/* Logout Button */}
+          {/* Toggle Button */}
           <button
-            onClick={handleLogout}
-            className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            className="mb-4 p-3 hover:bg-gray-100 rounded-lg transition-colors w-full flex items-center justify-center min-h-[44px] min-w-[44px]"
+            title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-label={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
-            🚪 Logout
+            <span className="text-2xl">{isSidebarCollapsed ? '☰' : '✕'}</span>
           </button>
+          
+          {!isSidebarCollapsed && (
+            <>
+              <h2 className="text-xl font-bold text-gray-900 mb-4">🧭 Navigation</h2>
+              
+              {/* User Info */}
+              <div className="mb-4">
+                <p className="font-semibold text-gray-900">
+                  👤 {user?.name || user?.email}
+                </p>
+                <p className="text-sm text-gray-600">{user?.email}</p>
+              </div>
+
+              {/* Logout Button */}
+              <button
+                onClick={handleLogout}
+                className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+              >
+                🚪 Logout
+              </button>
+            </>
+          )}
+          
+          {isSidebarCollapsed && (
+            <button
+              onClick={handleLogout}
+              className="w-full p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              title="Logout"
+            >
+              🚪
+            </button>
+          )}
         </div>
 
         {/* Navigation Links */}
@@ -89,9 +129,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                   isActive('/dashboard')
                     ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold'
                     : 'text-gray-700 hover:bg-gray-100'
-                }`}
+                } ${isSidebarCollapsed ? 'text-center' : ''}`}
+                title={isSidebarCollapsed ? 'My Dashboard' : ''}
               >
-                My Dashboard
+                {isSidebarCollapsed ? '🏠' : 'My Dashboard'}
               </Link>
             </li>
             <li>
@@ -101,9 +142,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                   isActive('/cards/identify')
                     ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold'
                     : 'text-gray-700 hover:bg-gray-100'
-                }`}
+                } ${isSidebarCollapsed ? 'text-center' : ''}`}
+                title={isSidebarCollapsed ? 'Identify My Cards' : ''}
               >
-                Identify My Cards
+                {isSidebarCollapsed ? '🃏' : 'Identify My Cards'}
               </Link>
             </li>
             <li>
@@ -113,9 +155,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                   isActive('/cards/discover')
                     ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold'
                     : 'text-gray-700 hover:bg-gray-100'
-                }`}
+                } ${isSidebarCollapsed ? 'text-center' : ''}`}
+                title={isSidebarCollapsed ? 'Card Discovery' : ''}
               >
-                Card Discovery
+                {isSidebarCollapsed ? '🔍' : 'Card Discovery'}
               </Link>
             </li>
             <li>
@@ -125,16 +168,17 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                   isActive('/banks/manage')
                     ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold'
                     : 'text-gray-700 hover:bg-gray-100'
-                }`}
+                } ${isSidebarCollapsed ? 'text-center' : ''}`}
+                title={isSidebarCollapsed ? 'Manage Banks' : ''}
               >
-                Manage Banks
+                {isSidebarCollapsed ? '🏦' : 'Manage Banks'}
               </Link>
             </li>
           </ul>
         </nav>
 
         {/* Help Section */}
-        {helpText && (
+        {!isSidebarCollapsed && helpText && (
           <div className="p-4 border-t border-gray-200">
             <h3 className="font-semibold text-gray-900 mb-2">{helpText.title}</h3>
             {helpText.content}
