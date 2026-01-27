@@ -1,5 +1,7 @@
 # Project Refactor: Clean Monorepo Structure
 
+> **Historical Document** - This document is preserved for reference. It describes a refactoring that was completed in January 2026. The project structure described here is the current structure.
+
 **Date**: January 10, 2026  
 **Type**: Directory Restructure  
 **Status**: ✅ Complete

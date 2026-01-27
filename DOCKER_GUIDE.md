@@ -12,7 +12,7 @@ The entire Cashback Optimization Engine now runs in Docker containers for consis
 |---------|---------------|------|-------------|
 | **Database** | `cashback_db` | 5432 | PostgreSQL 16 |
 | **Backend** | `cashback_backend` | 8000 | FastAPI REST API |
-| **Frontend** | `cashback_frontend` | 8501 | Streamlit Dashboard |
+| **Frontend** | `cashback_frontend_js` | 3000 | React Application (Vite dev server) |
 
 ---
 
@@ -28,7 +28,7 @@ This single command starts all 3 services!
 
 ### Access the Application
 
-- **📊 Dashboard**: http://localhost:8501 (Streamlit UI)
+- **📊 Dashboard**: http://localhost:3000 (React UI)
 - **🔌 API Backend**: http://localhost:8000 (REST API)
 - **📚 API Docs**: http://localhost:8000/docs (Swagger UI)
 
@@ -49,7 +49,7 @@ docker-compose ps
 docker-compose logs -f
 
 # Specific service
-docker-compose logs -f frontend
+docker-compose logs -f frontend-js
 docker-compose logs -f backend
 docker-compose logs -f db
 ```
@@ -57,7 +57,7 @@ docker-compose logs -f db
 ### Restart a Service
 
 ```bash
-docker-compose restart frontend
+docker-compose restart frontend-js
 docker-compose restart backend
 ```
 
@@ -80,7 +80,7 @@ docker-compose down -v
 docker-compose up -d --build backend
 
 # Frontend changes
-docker-compose up -d --build frontend
+docker-compose up -d --build frontend-js
 
 # Rebuild everything
 docker-compose down
@@ -94,14 +94,14 @@ docker-compose up -d --build
 Services communicate via Docker's internal network:
 
 ```
-Frontend (8501)
+Frontend (3000) - Vite dev server
     ↓
 Backend (http://backend:8000)  ← Uses Docker service name
     ↓
 Database (postgresql://db:5432)
 ```
 
-**Key Point**: The frontend uses `BACKEND_URL=http://backend:8000` (service name) instead of `localhost` because they're in the same Docker network.
+**Key Point**: The frontend uses relative URLs (`/api/*`) that are proxied to the backend. In development, Vite's proxy configuration handles this automatically. In production, Nginx serves as a reverse proxy (see [DEPLOYMENT.md](./DEPLOYMENT.md) for production setup).
 
 ---
 
@@ -113,8 +113,8 @@ Database (postgresql://db:5432)
 
 **Solution**:
 ```bash
-# Find and kill process on port 8501 (frontend)
-lsof -ti:8501 | xargs kill -9
+# Find and kill process on port 3000 (frontend)
+lsof -ti:3000 | xargs kill -9
 
 # Or port 8000 (backend)
 lsof -ti:8000 | xargs kill -9
@@ -131,10 +131,13 @@ docker-compose ps
 curl http://localhost:8000/
 ```
 
-**Check**: Frontend environment variable
+**Check**: Frontend can reach backend via proxy
 ```bash
-docker-compose exec frontend env | grep BACKEND_URL
-# Should show: BACKEND_URL=http://backend:8000
+# Test from frontend container
+docker-compose exec frontend-js wget -O- http://backend:8000/
+
+# Or check Vite proxy configuration
+docker-compose exec frontend-js cat vite.config.ts | grep proxy
 ```
 
 ### Database Connection Failed
@@ -166,19 +169,19 @@ docker-compose up --build -d
 
 ### Frontend Development
 
-1. **Edit** `frontend/app.py`
-2. **Changes auto-reload** (volume mounted)
-3. Refresh browser to see changes
+1. **Edit** files in `frontend-js/src/`
+2. **Changes auto-reload** (Vite HMR - Hot Module Replacement)
+3. Browser automatically refreshes to show changes
 
 ### Backend Development
 
-1. **Edit** `app/main.py` or other backend files
-2. **Changes auto-reload** (volume mounted, `--reload` flag)
+1. **Edit** files in `backend/app/`
+2. **Changes auto-reload** (volume mounted, FastAPI `--reload` flag)
 3. API updates immediately
 
 ### Database Changes
 
-1. **Edit** `app/models/models.py`
+1. **Edit** `backend/app/models/models.py`
 2. **Restart backend** to apply schema changes:
    ```bash
    docker-compose restart backend
@@ -191,8 +194,8 @@ docker-compose up --build -d
 All services have health checks:
 
 ```bash
-# Frontend health
-curl http://localhost:8501/_stcore/health
+# Frontend health (Vite dev server)
+curl http://localhost:3000
 
 # Backend health
 curl http://localhost:8000/
@@ -226,11 +229,21 @@ Then use:
 docker-compose --env-file .env.production up -d
 ```
 
+### Production Deployment
+
+For production deployment using pre-built images from a Docker registry, see **[DEPLOYMENT.md](./DEPLOYMENT.md)**.
+
+The production setup uses:
+- `docker-compose.prod.yml` for production configuration
+- Pre-built images from Docker Hub or other registry
+- Nginx reverse proxy for the frontend
+- No volume mounts (static files)
+
 ### Scaling
 
-To run multiple frontend instances:
+To run multiple frontend instances (development):
 ```bash
-docker-compose up -d --scale frontend=3
+docker-compose up -d --scale frontend-js=3
 ```
 
 ### Logs
@@ -246,13 +259,17 @@ docker-compose logs --follow | tee app.log
 
 ```
 .
-├── docker-compose.yml       # Orchestrates all 3 services
-├── Dockerfile               # Backend container definition
-└── frontend/
-    └── Dockerfile           # Frontend container definition
+├── docker-compose.yml        # Development orchestration
+├── docker-compose.prod.yml   # Production deployment (registry images)
+├── backend/
+│   └── Dockerfile            # Backend container definition
+└── frontend-js/
+    ├── Dockerfile            # Development container (Vite)
+    ├── Dockerfile.prod       # Production container (Nginx)
+    └── nginx.conf           # Nginx reverse proxy config
 ```
 
-### docker-compose.yml Structure
+### docker-compose.yml Structure (Development)
 
 ```yaml
 services:
@@ -262,18 +279,17 @@ services:
     healthcheck: ✓
   
   backend:
-    build: .
+    build: ./backend
     ports: ["8000:8000"]
     depends_on: [db]
-    volumes: [./app:/app/app]  # Hot-reload
+    volumes: [./backend:/app]  # Hot-reload
   
-  frontend:
-    build: ./frontend
-    ports: ["8501:8501"]
+  frontend-js:
+    build: ./frontend-js
+    ports: ["3000:3000"]
     depends_on: [backend]
-    volumes: [./frontend:/app]  # Hot-reload
-    environment:
-      BACKEND_URL: http://backend:8000
+    volumes: [./frontend-js:/app]  # Hot-reload
+    # Vite proxy configured in vite.config.ts
 ```
 
 ---
@@ -290,7 +306,7 @@ docker-compose ps
 curl http://localhost:8000/
 
 # 3. Test frontend
-curl http://localhost:8501/_stcore/health
+curl http://localhost:3000
 
 # 4. Test end-to-end (from frontend to backend)
 curl -s "http://localhost:8000/reports/savings/4b0939d1-7595-414e-bbd9-597f41c39e99" | jq '.summary'
@@ -313,6 +329,6 @@ If all return successful responses, your stack is fully operational! 🎉
 
 For more details, see:
 - [Main README](README.md) - Project overview
-- [Frontend README](frontend/README.md) - Frontend-specific docs
-- [LEARNINGS.md](LEARNINGS.md) - Troubleshooting guide
+- [DEPLOYMENT.md](DEPLOYMENT.md) - Production deployment guide
+- [Frontend README](frontend-js/README.md) - Frontend-specific docs
 

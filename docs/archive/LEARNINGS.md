@@ -1,5 +1,7 @@
 # Project Learnings & Troubleshooting Guide
 
+> **Historical Document** - This document is preserved for reference. It contains troubleshooting notes from early development phases (Sub-Phases 1.1-1.4). Some information may be outdated. For current troubleshooting, see [DOCKER_GUIDE.md](../../DOCKER_GUIDE.md) and [DEPLOYMENT.md](../../DEPLOYMENT.md).
+
 This document captures issues encountered during development, their root causes, and solutions. It serves as a knowledge base for future development and debugging.
 
 ---

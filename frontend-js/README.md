@@ -35,19 +35,20 @@ The app will be available at `http://localhost:3000`
 
 ### Environment Variables
 
-Create a `.env` file in the `frontend-js` directory:
+**No environment variables needed for local development!**
 
-```env
-VITE_BACKEND_URL=http://localhost:8000
-```
+The frontend uses relative URLs (`/api/*`) that are automatically proxied to the backend:
+- **Local development**: Vite's proxy configuration (see `vite.config.ts`) handles routing
+- **Docker development**: Vite proxy configured to use `http://backend:8000`
+- **Production**: Nginx reverse proxy handles routing (see `nginx.conf`)
 
-For Docker, the backend URL is automatically set to `http://backend:8000`.
+This reverse proxy pattern means no build-time configuration is required - the same image works everywhere.
 
 ## Docker
 
 ### Development Mode
 
-The Dockerfile runs the Vite dev server with hot reload:
+The `Dockerfile` runs the Vite dev server with hot reload:
 
 ```bash
 docker-compose up frontend-js
@@ -55,15 +56,26 @@ docker-compose up frontend-js
 
 The app will be available at `http://localhost:3000`
 
-### Building for Production
+**Note**: API calls use relative URLs (`/api/*`) which Vite automatically proxies to `http://backend:8000` based on the configuration in `vite.config.ts`.
 
-To build for production:
+### Production Build
+
+For production deployment, use `Dockerfile.prod`:
 
 ```bash
-npm run build
+docker build -f Dockerfile.prod -t your-username/cashback-frontend:latest .
 ```
 
-The built files will be in the `dist/` directory.
+This creates a multi-stage build:
+1. **Builder stage**: Compiles React app with Vite
+2. **Production stage**: Serves static files with Nginx
+
+The production image uses Nginx as a reverse proxy:
+- Serves static files from `/usr/share/nginx/html`
+- Proxies `/api/*` requests to the backend service
+- No build-time configuration needed (works with any backend URL)
+
+See [DEPLOYMENT.md](../DEPLOYMENT.md) for complete production deployment instructions.
 
 ## Project Structure
 
@@ -81,20 +93,19 @@ frontend-js/
 ├── package.json
 ├── vite.config.ts
 ├── tsconfig.json
-└── Dockerfile
+├── Dockerfile          # Development (Vite dev server)
+├── Dockerfile.prod     # Production (Nginx)
+└── nginx.conf          # Nginx reverse proxy config
 ```
 
-## Features Implemented (Part 1)
+## Features Implemented
 
 - ✅ Authentication (signup, login, logout)
 - ✅ Session management with persistence
 - ✅ Protected routes
-- ✅ Landing page with signup/login forms
-- ✅ Dashboard placeholder (protected route)
-
-## Next Steps (Part 2)
-
-- Dashboard with savings insights
-- Card Discovery page
-- Identify Cards page
-- Onboarding flow
+- ✅ Dashboard with savings insights and metrics
+- ✅ Card Discovery page with filtering
+- ✅ Card Identification workflow
+- ✅ Bank Management interface
+- ✅ Mobile-responsive design
+- ✅ Production-ready deployment with Nginx
