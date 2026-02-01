@@ -1,6 +1,6 @@
 # Deployment Guide
 
-This guide explains how to build, push, and deploy the Cashback Optimization Engine using Docker images from a registry.
+This guide explains how to build, push, and deploy GetCardIQ using Docker images from a registry.
 
 ## Prerequisites
 
@@ -30,11 +30,12 @@ If images are already available in a Docker registry:
    ```bash
    cp env.example .env
    # Edit .env with your values (Plaid credentials, database passwords)
+   # For production, set IMAGE_TAG=stable_v1 to use the current stable release
    ```
 
-2. **Update `docker-compose.prod.yml`:**
-   - Replace `your-dockerhub-username` with your actual Docker Hub username
-   - Or update image names to match your registry
+2. **Update `docker-compose.prod.yml` (or set in `.env`):**
+   - Set `IMAGE_REGISTRY_USERNAME` to your Docker Hub username
+   - Set `IMAGE_TAG=stable_v1` to use the current stable tag (default is `latest`)
 
 3. **Pull and start services:**
    ```bash
@@ -53,8 +54,8 @@ If images are already available in a Docker registry:
 
 ```bash
 cd backend
-docker build -t your-dockerhub-username/cashback-backend:latest .
-docker push your-dockerhub-username/cashback-backend:latest
+docker build -t your-dockerhub-username/getcardiq-backend:latest .
+docker push your-dockerhub-username/getcardiq-backend:latest
 ```
 
 ### 2. Build Frontend Image
@@ -65,26 +66,41 @@ docker push your-dockerhub-username/cashback-backend:latest
 cd frontend-js
 docker build \
   -f Dockerfile.prod \
-  -t your-dockerhub-username/cashback-frontend:latest .
-docker push your-dockerhub-username/cashback-frontend:latest
+  -t your-dockerhub-username/getcardiq-frontend:latest .
+docker push your-dockerhub-username/getcardiq-frontend:latest
 ```
 
 **Note:** The frontend image works everywhere because it uses relative URLs. Nginx handles proxying to the backend automatically.
 
 ### 3. Tagging for Versioning
 
-For production, use version tags:
+**Current stable tag:** `stable_v1` — use this tag for production deployments.
+
+For production, tag and push with the stable tag (or semantic versions):
+
+```bash
+# Tag and push with current stable tag
+docker tag your-dockerhub-username/getcardiq-backend:latest \
+  your-dockerhub-username/getcardiq-backend:stable_v1
+docker push your-dockerhub-username/getcardiq-backend:stable_v1
+
+docker tag your-dockerhub-username/getcardiq-frontend:latest \
+  your-dockerhub-username/getcardiq-frontend:stable_v1
+docker push your-dockerhub-username/getcardiq-frontend:stable_v1
+```
+
+Optional: also tag with semantic version (e.g. v1.0.0):
 
 ```bash
 # Backend
-docker tag your-dockerhub-username/cashback-backend:latest \
-  your-dockerhub-username/cashback-backend:v1.0.0
-docker push your-dockerhub-username/cashback-backend:v1.0.0
+docker tag your-dockerhub-username/getcardiq-backend:latest \
+  your-dockerhub-username/getcardiq-backend:v1.0.0
+docker push your-dockerhub-username/getcardiq-backend:v1.0.0
 
 # Frontend
-docker tag your-dockerhub-username/cashback-frontend:latest \
-  your-dockerhub-username/cashback-frontend:v1.0.0
-docker push your-dockerhub-username/cashback-frontend:v1.0.0
+docker tag your-dockerhub-username/getcardiq-frontend:latest \
+  your-dockerhub-username/getcardiq-frontend:v1.0.0
+docker push your-dockerhub-username/getcardiq-frontend:v1.0.0
 ```
 
 ## Environment Variables
@@ -93,9 +109,9 @@ docker push your-dockerhub-username/cashback-frontend:v1.0.0
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `POSTGRES_USER` | PostgreSQL username | `cashback_user` |
+| `POSTGRES_USER` | PostgreSQL username | `getcardiq_user` |
 | `POSTGRES_PASSWORD` | PostgreSQL password | `your_secure_password` |
-| `POSTGRES_DB` | PostgreSQL database name | `cashback_db` |
+| `POSTGRES_DB` | PostgreSQL database name | `getcardiq_db` |
 | `PLAID_CLIENT_ID` | Plaid API client ID | `your_plaid_client_id` |
 | `PLAID_SECRET` | Plaid API secret | `your_plaid_secret` |
 | `PLAID_ENV` | Plaid environment | `sandbox` or `production` |
@@ -104,6 +120,8 @@ docker push your-dockerhub-username/cashback-frontend:v1.0.0
 
 | Variable | Description | Default |
 |----------|-------------|---------|
+| `IMAGE_REGISTRY_USERNAME` | Docker Hub or registry username for image names | (set in .env) |
+| `IMAGE_TAG` | Image tag to pull/deploy. **Current stable tag:** `stable_v1` | `latest` |
 | `BACKEND_URL` | **Deprecated** - No longer needed due to reverse proxy | N/A |
 | `CORS_ORIGINS` | Comma-separated allowed origins (less critical with reverse proxy) | `http://localhost:3000,...` |
 
@@ -175,9 +193,9 @@ docker-compose -f docker-compose.prod.yml up -d
 
 **Solutions:**
 1. Verify image names in `docker-compose.prod.yml` match registry
-2. Ensure images are pushed: `docker images | grep cashback`
+2. Ensure images are pushed: `docker images | grep getcardiq`
 3. Check Docker Hub login: `docker login`
-4. Pull images manually: `docker pull your-username/cashback-backend:latest`
+4. Pull images manually: `docker pull your-username/getcardiq-backend:latest`
 
 ### API Requests Return 502 Bad Gateway
 
@@ -207,14 +225,14 @@ docker buildx create --use
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
   -f frontend-js/Dockerfile.prod \
-  -t your-username/cashback-frontend:latest \
+  -t your-username/getcardiq-frontend:latest \
   --push \
   frontend-js/
 
 # Build backend for multiple platforms
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
-  -t your-username/cashback-backend:latest \
+  -t your-username/getcardiq-backend:latest \
   --push \
   backend/
 ```

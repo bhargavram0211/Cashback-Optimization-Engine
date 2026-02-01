@@ -1,5 +1,5 @@
 # Software Requirements Specification (SRS)
-## Project: Cashback Optimization Engine (MVP)
+## Project: GetCardIQ (MVP)
 
 ### 1. Project Overview
 A financial analysis tool designed to ingest credit card transactions via Plaid and identify "Opportunity Costs" where a different card in the user’s portfolio would have yielded higher rewards. The goal is educational: training the user to make better card-choice decisions in the future.

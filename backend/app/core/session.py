@@ -1,5 +1,5 @@
 """
-Cashback Optimization Engine - Session Management
+GetCardIQ - Session Management
 Sprint 2: Simple in-memory session storage for MVP
 
 For production, replace with Redis or database-backed sessions.

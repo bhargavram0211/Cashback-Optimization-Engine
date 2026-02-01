@@ -1,5 +1,5 @@
 """
-Cashback Optimization Engine - Reports Router
+GetCardIQ - Reports Router
 Consolidated endpoints for comprehensive analytics reports
 """
 

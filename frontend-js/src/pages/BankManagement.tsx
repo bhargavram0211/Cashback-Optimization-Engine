@@ -233,7 +233,7 @@ export const BankManagement: React.FC = () => {
             <div className="text-6xl mb-4">🏦</div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">No Banks Connected</h2>
             <p className="text-gray-600 mb-6">
-              Connect your first bank account to start tracking your cashback optimization.
+              Connect your first bank account to start tracking with GetCardIQ.
             </p>
             <button
               onClick={handleCreateLinkToken}

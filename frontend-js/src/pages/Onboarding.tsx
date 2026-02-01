@@ -331,7 +331,7 @@ export const Onboarding: React.FC = () => {
         {currentStep === 1 && (
           <div className="bg-white rounded-lg shadow-xl p-8">
             <h1 className="text-4xl font-bold text-gray-900 mb-4 text-center">
-              🚀 Welcome to Cashback Optimizer!
+              🚀 Welcome to GetCardIQ!
             </h1>
             <p className="text-center text-gray-600 mb-8 text-lg">
               Maximize your credit card rewards by using the right card for every purchase.
@@ -541,7 +541,7 @@ export const Onboarding: React.FC = () => {
                     Your account is configured and ready to go. You can now:
                   </p>
                   <ul className="list-disc list-inside space-y-1 text-gray-700 ml-4">
-                    <li>View your cashback optimization dashboard</li>
+                    <li>View your GetCardIQ dashboard</li>
                     <li>See where you're losing money</li>
                     <li>Discover better card options</li>
                   </ul>

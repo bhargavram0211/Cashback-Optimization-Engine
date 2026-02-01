@@ -1,7 +1,7 @@
 feat: UI/UX Sprint 1 - Data-Driven Card Library & Automated Startup
 
 ## Summary
-Complete UI/UX refactoring sprint implementing data-driven card management, automated startup, and modern Card Discovery interface. This eliminates manual setup steps and provides a production-ready foundation for the Cashback Optimization Engine.
+Complete UI/UX refactoring sprint implementing data-driven card management, automated startup, and modern Card Discovery interface. This eliminates manual setup steps and provides a production-ready foundation for GetCardIQ.
 
 ## Major Features
 

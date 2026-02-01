@@ -1,5 +1,5 @@
 """
-Cashback Optimization Engine - Plaid Link API
+GetCardIQ - Plaid Link API
 Sprint 2: Plaid Link token creation and public token exchange
 """
 
@@ -76,7 +76,7 @@ async def create_link_token(
             user=LinkTokenCreateRequestUser(
                 client_user_id=str(current_user.id)
             ),
-            client_name="Cashback Optimization Engine",
+            client_name="GetCardIQ",
             products=[Products("transactions")],
             country_codes=[CountryCode("US")],
             language="en"

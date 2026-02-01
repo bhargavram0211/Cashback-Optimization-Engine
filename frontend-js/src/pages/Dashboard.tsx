@@ -303,7 +303,7 @@ export const Dashboard: React.FC = () => {
         <div className="max-w-7xl mx-auto">
           <div className="bg-white rounded-lg shadow p-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-4">
-              💳 Cashback Optimization Dashboard
+              💳 GetCardIQ Dashboard
             </h1>
             <p className="text-lg text-gray-700 mb-6">
               Maximize your credit card rewards by using the right card for every purchase.
@@ -313,7 +313,7 @@ export const Dashboard: React.FC = () => {
               <h2 className="text-xl font-semibold text-blue-900 mb-2">👋 Welcome! Let's get you started.</h2>
               <p className="text-blue-800 mb-4">No transactions found yet.</p>
               <div className="text-blue-700">
-                <p className="mb-2">To see your cashback optimization insights:</p>
+                <p className="mb-2">To see your GetCardIQ insights:</p>
                 <ol className="list-decimal list-inside space-y-1 ml-4">
                   <li>Connect your bank account (or use sandbox for testing)</li>
                   <li>Identify your credit cards</li>
@@ -392,7 +392,7 @@ export const Dashboard: React.FC = () => {
         {/* Header */}
         <div className="mb-4 md:mb-6">
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
-            💳 Cashback Optimization Dashboard
+            💳 GetCardIQ Dashboard
           </h1>
           <p className="text-lg text-gray-700 mb-4">
             Maximize your credit card rewards by using the right card for every purchase.

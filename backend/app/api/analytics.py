@@ -1,5 +1,5 @@
 """
-Cashback Optimization Engine - Analytics API
+GetCardIQ - Analytics API
 Endpoints for aggregate insights and recommendations
 """
 

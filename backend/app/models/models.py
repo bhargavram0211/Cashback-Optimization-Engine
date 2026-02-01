@@ -1,5 +1,5 @@
 """
-Cashback Optimization Engine - Data Models
+GetCardIQ - Data Models
 Sub-Phase 1.2: SQLModel table definitions
 Phase 2.1: Card & Rules Registry
 Sprint 1: CardProduct + UserCard Architecture
@@ -20,7 +20,7 @@ from sqlalchemy import DECIMAL, String
 class User(SQLModel, table=True):
     """
     Primary identity table.
-    Represents a user of the cashback optimization system.
+    Represents a user of the GetCardIQ system.
     
     Sprint 2: Added password authentication and onboarding tracking.
     """

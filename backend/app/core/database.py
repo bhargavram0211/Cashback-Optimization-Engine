@@ -1,5 +1,5 @@
 """
-Cashback Optimization Engine - Database Utilities
+GetCardIQ - Database Utilities
 Database session management and dependencies
 """
 

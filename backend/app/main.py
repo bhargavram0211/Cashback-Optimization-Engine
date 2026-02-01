@@ -1,5 +1,5 @@
 """
-Cashback Optimization Engine - Main Application
+GetCardIQ - Main Application
 Sub-Phase 1.4: Added transaction sync engine
 """
 
@@ -31,8 +31,8 @@ from app.api.auth import get_current_user
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="Cashback Optimization Engine",
-    description="Backend API for credit card cashback optimization",
+    title="GetCardIQ",
+    description="Backend API for GetCardIQ credit card optimization",
     version="0.4.0"
 )
 
@@ -196,7 +196,7 @@ async def optimize(
     session: Session = Depends(get_session)
 ) -> Dict:
     """
-    Run the cashback optimization engine on the current user's transactions.
+    Run the GetCardIQ engine on the current user's transactions.
     
     Phase 2.2: The Optimization Engine (User-Scoped)
     
@@ -286,7 +286,7 @@ async def startup_event():
     Creates all database tables if they don't exist.
     Imports card products from YAML files.
     """
-    print("🚀 Cashback Optimization Engine - Backend Starting...")
+    print("🚀 GetCardIQ - Backend Starting...")
     print(f"📊 Database URL: {DATABASE_URL.split('@')[1] if '@' in DATABASE_URL else 'Not Set'}")
     
     # Create all tables in the database
@@ -334,6 +334,6 @@ async def shutdown_event():
     """
     Runs on application shutdown.
     """
-    print("👋 Cashback Optimization Engine - Backend Shutting Down...")
+    print("👋 GetCardIQ - Backend Shutting Down...")
     engine.dispose()
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "🚀 Starting Cashback Optimization Engine Backend..."
+echo "🚀 Starting GetCardIQ Backend..."
 
 # Wait for database to be ready
 echo "⏳ Waiting for database..."

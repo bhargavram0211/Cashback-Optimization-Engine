@@ -1,4 +1,4 @@
-# Cashback Optimization Engine - Frontend Requirements
+# GetCardIQ - Frontend Requirements (deprecated Streamlit)
 # Phase 3: Streamlit Dashboard
 
 streamlit>=1.31.0

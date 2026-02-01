@@ -2,7 +2,7 @@
 
 ## 🐳 Complete Dockerized Stack
 
-The entire Cashback Optimization Engine now runs in Docker containers for consistent deployment across all environments.
+The entire GetCardIQ application now runs in Docker containers for consistent deployment across all environments.
 
 ---
 
@@ -10,9 +10,9 @@ The entire Cashback Optimization Engine now runs in Docker containers for consis
 
 | Service | Container Name | Port | Description |
 |---------|---------------|------|-------------|
-| **Database** | `cashback_db` | 5432 | PostgreSQL 16 |
-| **Backend** | `cashback_backend` | 8000 | FastAPI REST API |
-| **Frontend** | `cashback_frontend_js` | 3000 | React Application (Vite dev server) |
+| **Database** | `getcardiq_db` | 5432 | PostgreSQL 16 |
+| **Backend** | `getcardiq_backend` | 8000 | FastAPI REST API |
+| **Frontend** | `getcardiq_frontend_js` | 3000 | React Application (Vite dev server) |
 
 ---
 
@@ -201,7 +201,7 @@ curl http://localhost:3000
 curl http://localhost:8000/
 
 # Database health (from host)
-docker-compose exec db pg_isready -U cashback_user
+docker-compose exec db pg_isready -U getcardiq_user
 ```
 
 ---
@@ -216,7 +216,7 @@ For production, create a separate `.env.production`:
 # Database
 POSTGRES_USER=prod_user
 POSTGRES_PASSWORD=<strong_password>
-POSTGRES_DB=cashback_prod
+POSTGRES_DB=getcardiq_prod
 
 # Plaid (production credentials)
 PLAID_CLIENT_ID=<prod_client_id>

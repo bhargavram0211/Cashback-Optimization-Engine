@@ -48,7 +48,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         title: '💡 About',
         content: (
           <div className="text-sm text-gray-600 space-y-1">
-            <p>This dashboard shows your credit card cashback optimization insights:</p>
+            <p>This dashboard shows your GetCardIQ insights:</p>
             <ul className="list-disc list-inside space-y-1 ml-2">
               <li><strong>Total Spent:</strong> Your transaction volume</li>
               <li><strong>Actual Rewards:</strong> Cashback you earned</li>

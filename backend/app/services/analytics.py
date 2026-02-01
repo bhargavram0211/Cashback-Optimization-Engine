@@ -1,5 +1,5 @@
 """
-Cashback Optimization Engine - Analytics Service
+GetCardIQ - Analytics Service
 Sprint 1: Updated to work with UserCard and CardProduct architecture
 Provides aggregate insights and recommendations using efficient SQL queries
 """

@@ -1,4 +1,4 @@
-# Cashback Optimization Engine - Frontend Dockerfile
+# GetCardIQ - Frontend Dockerfile (deprecated Streamlit)
 # Streamlit Dashboard Container
 
 FROM python:3.11-slim

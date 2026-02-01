@@ -1,5 +1,5 @@
 """
-Cashback Optimization Engine - Business Logic Package
+GetCardIQ - Business Logic Package
 """
 
 from app.logic.mapper import NormalizationMapper, RewardBucket, get_mapper

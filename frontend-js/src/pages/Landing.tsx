@@ -112,7 +112,7 @@ export const Landing: React.FC = () => {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-5xl font-bold text-gray-900 mb-4">
-            💳 Cashback Optimization Engine
+            💳 GetCardIQ
           </h1>
           <h2 className="text-2xl text-gray-700 mb-2">
             Maximize Your Credit Card Rewards
@@ -385,7 +385,7 @@ export const Landing: React.FC = () => {
         {/* Footer */}
         <div className="text-center mt-8 text-gray-600 text-sm">
           <p>🔒 Your data is secure. We use Plaid for bank connections and never store your login credentials.</p>
-          <p className="mt-2">Cashback Optimization Engine - Built for smart spenders</p>
+          <p className="mt-2">GetCardIQ - Built for smart spenders</p>
         </div>
       </div>
     </div>

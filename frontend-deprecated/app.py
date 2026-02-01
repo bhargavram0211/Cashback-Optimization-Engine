@@ -1,5 +1,5 @@
 """
-Cashback Optimization Engine - Streamlit Frontend
+GetCardIQ - Streamlit Frontend (deprecated)
 Sprint 2: Authentication, Onboarding & Plaid Link Integration
 
 Major updates:
@@ -23,7 +23,7 @@ BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 
 # Page Configuration
 st.set_page_config(
-    page_title="Cashback Optimizer",
+    page_title="GetCardIQ",
     page_icon="💳",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -277,7 +277,7 @@ def identify_card(user_card_id: str, card_product_id: str) -> bool:
 
 def landing_page():
     """Landing page with signup and login."""
-    st.title("💳 Cashback Optimization Engine")
+    st.title("💳 GetCardIQ")
     
     st.markdown("""
     <div style="text-align: center; padding: 20px;">
@@ -355,7 +355,7 @@ def landing_page():
     st.markdown("""
     <div style="text-align: center; color: #999; padding: 40px 20px; margin-top: 40px; border-top: 1px solid #eee;">
         <p>🔒 Your data is secure. We use Plaid for bank connections and never store your login credentials.</p>
-        <p style="font-size: 12px;">Cashback Optimization Engine - Built for smart spenders</p>
+        <p style="font-size: 12px;">GetCardIQ - Built for smart spenders</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -366,7 +366,7 @@ def landing_page():
 
 def onboarding_page():
     """Guided onboarding flow for new users."""
-    st.title("🚀 Welcome to Cashback Optimizer!")
+    st.title("🚀 Welcome to GetCardIQ!")
     
     # Progress tracking
     if "onboarding_step" not in st.session_state:
@@ -548,7 +548,7 @@ def onboarding_page():
             st.markdown("### 🎉 You're All Set!")
             st.markdown("""
             Your account is configured and ready to go. You can now:
-            - View your cashback optimization dashboard
+            - View your GetCardIQ dashboard
             - See where you're losing money
             - Discover better card options
             """)
@@ -569,7 +569,7 @@ def onboarding_page():
 
 def dashboard_page(user_id: str):
     """Main dashboard showing savings insights and recommendations."""
-    st.title("💳 Cashback Optimization Dashboard")
+    st.title("💳 GetCardIQ Dashboard")
     st.markdown("**Maximize your credit card rewards by using the right card for every purchase.**")
     st.markdown("---")
     
@@ -583,7 +583,7 @@ def dashboard_page(user_id: str):
         st.markdown("""
         ### No transactions found yet
         
-        To see your cashback optimization insights:
+        To see your GetCardIQ insights:
         1. Make sure you've connected your bank accounts
         2. Identified your credit cards
         3. Have some transactions synced
@@ -939,7 +939,7 @@ def main():
     if page == "My Dashboard":
         st.sidebar.markdown("""
         ### 💡 About
-        This dashboard shows your credit card cashback optimization insights:
+        This dashboard shows your GetCardIQ insights:
         - **Total Spent**: Your transaction volume
         - **Actual Rewards**: Cashback you earned
         - **Lost Savings**: Opportunity cost from suboptimal card usage

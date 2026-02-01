@@ -897,7 +897,7 @@ The `initial_products` array determines which account types are provisioned:
 |-------------------|---------------------|----------|
 | `["transactions"]` | Checking accounts with transaction history | Bank account analysis |
 | `["liabilities"]` | Credit cards without transactions | Debt metadata only |
-| `["transactions", "liabilities"]` | **Credit cards WITH transactions** | Cashback optimization ✓ |
+| `["transactions", "liabilities"]` | **Credit cards WITH transactions** | GetCardIQ ✓ |
 
 **Key Insight:**  
 > The `liabilities` product isn't just for metadata—it's a **signal** to Plaid Sandbox about which account types to provision. Always include both for credit card transaction testing.

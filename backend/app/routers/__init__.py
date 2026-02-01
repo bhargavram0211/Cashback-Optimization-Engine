@@ -1,5 +1,5 @@
 """
-Cashback Optimization Engine - Routers Package
+GetCardIQ - Routers Package
 Consolidated API routers for complex endpoints
 """
 

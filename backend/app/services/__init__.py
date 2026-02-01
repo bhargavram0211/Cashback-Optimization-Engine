@@ -1,5 +1,5 @@
 """
-Cashback Optimization Engine - Services Package
+GetCardIQ - Services Package
 Business logic and optimization algorithms
 """
 

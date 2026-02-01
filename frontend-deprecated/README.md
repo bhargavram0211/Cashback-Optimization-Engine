@@ -1,4 +1,4 @@
-# Cashback Optimization Engine - Frontend
+# GetCardIQ - Frontend (deprecated Streamlit)
 
 ## Phase 3: Streamlit Dashboard
 
@@ -172,7 +172,7 @@ pip install -r requirements.txt
 **Solution**:
 1. Verify the user exists in the database:
    ```bash
-   docker exec -it cashback_postgres psql -U cashback_user -d cashback_db -c "SELECT id, email FROM users;"
+   docker exec -it getcardiq_db psql -U getcardiq_user -d getcardiq_db -c "SELECT id, email FROM users;"
    ```
 2. Use a valid user ID in the sidebar
 
@@ -189,5 +189,5 @@ pip install -r requirements.txt
 
 ## 📄 License
 
-Part of the Cashback Optimization Engine project.
+Part of the GetCardIQ project (deprecated).
 

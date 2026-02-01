@@ -1,5 +1,5 @@
 """
-Cashback Optimization Engine - Authentication API
+GetCardIQ - Authentication API
 Sprint 2: Password-based authentication with session management
 """
 

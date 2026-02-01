@@ -1,5 +1,5 @@
 """
-Cashback Optimization Engine - Sync API
+GetCardIQ - Sync API
 Sub-Phase 1.4: Transaction sync endpoint with 3-stage filter pipeline
 
 Reference: SRS Section 5.1 - Incremental Data Sync
@@ -60,7 +60,7 @@ def is_analyzable_transaction(
     detailed_category: Optional[str]
 ) -> bool:
     """
-    Determine if a transaction should be analyzed for cashback optimization.
+    Determine if a transaction should be analyzed by GetCardIQ.
     
     SRS Section 2.2: Transaction Discard/Ignore Policy
     - Returns False for:

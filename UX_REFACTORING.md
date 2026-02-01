@@ -1,4 +1,4 @@
-# Cashback Optimization Engine - UI/UX Refactoring
+# GetCardIQ - UI/UX Refactoring
 
 **Focus**: User Experience Improvements & Interface Design  
 **Last Updated**: 2026-01-17
@@ -351,7 +351,7 @@ rewards:
 EOF
 
 # 2. Import the card
-docker exec cashback_backend python scripts/import_cards.py
+docker exec getcardiq_backend python scripts/import_cards.py
 
 # 3. Card is now available!
 ```
@@ -387,7 +387,7 @@ The application now automatically imports the card library during startup, elimi
 
 ### Startup Logs
 ```
-🚀 Starting Cashback Optimization Engine Backend...
+🚀 Starting GetCardIQ Backend...
 ⏳ Waiting for database...
 ✅ Database is ready!
 🌐 Starting FastAPI server...

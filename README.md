@@ -1,4 +1,4 @@
-# Cashback Optimization Engine
+# GetCardIQ
 
 A financial analysis tool designed to ingest credit card transactions via Plaid and identify "Opportunity Costs" where a different card in your portfolio would have yielded higher rewards.
 
@@ -172,7 +172,7 @@ docker-compose down -v
 │   │   ├── models/          # Database models
 │   │   │   └── models.py    # SQLModel definitions
 │   │   ├── services/        # Business services
-│   │   │   ├── optimizer.py # Cashback optimization engine
+│   │   │   ├── optimizer.py # GetCardIQ optimization engine
 │   │   │   └── analytics.py # Analytics calculations
 │   │   └── schemas/         # Pydantic schemas
 │   │       └── schemas.py   # API response models
@@ -222,7 +222,7 @@ docker-compose down -v
 
 **Phase 2: Optimization Engine** ✅
 - Card and reward rules registry
-- Cashback optimization calculations
+- GetCardIQ optimization calculations
 - Analytics and reporting services
 
 **Phase 3: Frontend** ✅
@@ -287,7 +287,7 @@ The guide includes:
 
 ### Category Mapping Audit
 ```bash
-docker exec cashback-backend python scripts/audit_mappings.py
+docker exec getcardiq_backend python scripts/audit_mappings.py
 ```
 Analyzes coverage of the category mapper against all 123 Plaid PFCv2 categories. Shows:
 - Distribution across 10 reward buckets

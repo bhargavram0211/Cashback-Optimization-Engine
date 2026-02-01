@@ -1,5 +1,5 @@
 """
-Cashback Optimization Engine - Core Package
+GetCardIQ - Core Package
 Configuration and shared utilities
 """
 

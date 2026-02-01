@@ -1,5 +1,5 @@
 """
-Cashback Optimization Engine - Category Normalization Mapper
+GetCardIQ - Category Normalization Mapper
 Sub-Phase 1.3: Maps Plaid's PFCv2 taxonomy to internal reward buckets
 
 Reference: SRS Section 4 - Category Normalization Mapper

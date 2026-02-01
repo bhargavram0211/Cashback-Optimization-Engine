@@ -1,6 +1,6 @@
-# Cashback Optimizer - React Frontend
+# GetCardIQ - React Frontend
 
-Modern React + TypeScript frontend for the Cashback Optimization Engine.
+Modern React + TypeScript frontend for GetCardIQ.
 
 ## Tech Stack
 
@@ -63,7 +63,7 @@ The app will be available at `http://localhost:3000`
 For production deployment, use `Dockerfile.prod`:
 
 ```bash
-docker build -f Dockerfile.prod -t your-username/cashback-frontend:latest .
+docker build -f Dockerfile.prod -t your-username/getcardiq-frontend:latest .
 ```
 
 This creates a multi-stage build:

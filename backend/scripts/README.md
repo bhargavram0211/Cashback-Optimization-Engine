@@ -1,6 +1,6 @@
 # Backend Scripts
 
-This directory contains utility scripts for managing the Cashback Optimization Engine backend.
+This directory contains utility scripts for managing the GetCardIQ backend.
 
 ## Card Management
 
@@ -22,7 +22,7 @@ python scripts/import_cards.py --verbose
 
 **In Docker**:
 ```bash
-docker exec cashback-backend python scripts/import_cards.py
+docker exec getcardiq_backend python scripts/import_cards.py
 ```
 
 ---
@@ -64,7 +64,7 @@ python scripts/import_cards.py
 
 **3. Verify** the card was imported:
 ```bash
-docker exec cashback-db psql -U cashback_user -d cashback_db -c \
+docker exec getcardiq_db psql -U getcardiq_user -d getcardiq_db -c \
   "SELECT provider, card_name FROM card_products ORDER BY provider;"
 ```
 
@@ -206,26 +206,26 @@ The `archive/` directory contains obsolete scripts kept for reference:
 docker-compose down
 
 # Remove database volume
-docker volume rm cashback-optimization-engine_postgres_data
+docker volume rm getcardiq_postgres_data
 
 # Rebuild and start
 docker-compose up -d --build
 
 # Import cards
-docker exec cashback-backend python scripts/import_cards.py
+docker exec getcardiq_backend python scripts/import_cards.py
 
 # Create test user and sync
-docker exec cashback-backend python scripts/generate_plaid_token.py
+docker exec getcardiq_backend python scripts/generate_plaid_token.py
 ```
 
 ### Check Script Logs
 
 ```bash
 # Backend logs
-docker logs cashback-backend -f
+docker logs getcardiq_backend -f
 
 # Database logs
-docker logs cashback-db -f
+docker logs getcardiq_db -f
 ```
 
 ---

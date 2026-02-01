@@ -1,5 +1,5 @@
 """
-Cashback Optimization Engine - API Package
+GetCardIQ - API Package
 REST API endpoints
 """
 

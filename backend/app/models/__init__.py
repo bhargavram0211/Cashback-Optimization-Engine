@@ -1,5 +1,5 @@
 """
-Cashback Optimization Engine - Models Package
+GetCardIQ - Models Package
 Exports all SQLModel table definitions
 Sprint 1: Updated to export CardProduct and UserCard
 """

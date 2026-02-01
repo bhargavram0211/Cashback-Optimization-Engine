@@ -1,5 +1,5 @@
 """
-Cashback Optimization Engine - Plaid Client Configuration
+GetCardIQ - Plaid Client Configuration
 Sub-Phase 1.4: Plaid API client initialization and utilities
 """
 

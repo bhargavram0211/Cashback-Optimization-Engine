@@ -1,5 +1,5 @@
 """
-Cashback Optimization Engine - Schemas Package
+GetCardIQ - Schemas Package
 Pydantic models for API request/response validation
 """
 

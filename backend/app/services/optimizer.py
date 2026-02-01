@@ -1,5 +1,5 @@
 """
-Sprint 1: Cashback Optimization Engine (Refactored)
+Sprint 1: GetCardIQ (Refactored)
 Calculates optimal card usage and opportunity cost for each transaction.
 
 Sprint 1 Changes:
