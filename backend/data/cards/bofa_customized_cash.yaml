@@ -1,0 +1,18 @@
+# Bank of America Customized Cash Rewards Card Definition
+# Last Updated: 2026-01-16
+
+provider: Bank of America
+card_name: Customized Cash
+base_reward_rate: 1.0
+is_available_in_market: true
+image_url: https://promo.bankofamerica.com/ccsearchlp10/compare-cards-3/static.33252/media/card-customizedcashrewards.1c9b41345055420bc4d4.png
+benefits_url: https://www.bankofamerica.com/credit-cards/products/cash-back-credit-card/
+
+# Reward structure: 3% in choice category, 2% at grocery stores
+rewards:
+  - bucket: ONLINE_SHOPPING
+    multiplier: 3.0
+  - bucket: GROCERY
+    multiplier: 2.0
+  - bucket: GENERAL
+    multiplier: 1.0

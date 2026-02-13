@@ -1,0 +1,23 @@
+# Citi Custom Cash Card Definition
+# Last Updated: 2026-01-16
+
+provider: Citi
+card_name: Custom Cash
+base_reward_rate: 1.0
+is_available_in_market: true
+image_url: https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRg69HQ-h0jCCWWKBsBkqMR1Wq30ffXaIv27g&s
+benefits_url: https://www.citi.com/credit-cards/citi-custom-cash-credit-card
+
+# Reward structure: 5% on top spend category (up to $500/month), 1% on everything else
+# For simplicity, applying 5% to major categories
+rewards:
+  - bucket: DINING
+    multiplier: 5.0
+  - bucket: GROCERY
+    multiplier: 5.0
+  - bucket: GAS
+    multiplier: 5.0
+  - bucket: TRAVEL
+    multiplier: 5.0
+  - bucket: GENERAL
+    multiplier: 1.0

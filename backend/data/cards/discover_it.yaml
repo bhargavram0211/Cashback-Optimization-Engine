@@ -1,0 +1,20 @@
+# Discover it Card Definition
+# Last Updated: 2026-01-16
+
+provider: Discover
+card_name: it
+base_reward_rate: 1.0
+is_available_in_market: true
+image_url: https://creditkarma-cms.imgix.net/wp-content/uploads/2024/07/image_3c2abe.png?auto=compress
+benefits_url: https://www.discover.com/credit-cards/cash-back/it-card.html
+
+# Reward structure: Rotating 5% categories (Q1 2026: Grocery, Wholesale, Streaming)
+rewards:
+  - bucket: GROCERY
+    multiplier: 5.0
+  - bucket: WHOLESALE
+    multiplier: 5.0
+  - bucket: STREAMING
+    multiplier: 5.0
+  - bucket: GENERAL
+    multiplier: 1.0

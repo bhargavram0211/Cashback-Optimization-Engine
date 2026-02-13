@@ -1,0 +1,53 @@
+version: '3.8'
+
+# Production docker-compose file
+# Uses pre-built images from Docker registry
+# Configure IMAGE_REGISTRY_USERNAME and IMAGE_TAG in .env file
+
+services:
+  db:
+    image: postgres:16
+    container_name: getcardiq_db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  backend:
+    image: ${IMAGE_REGISTRY_USERNAME:-bhargavram0211}/getcardiq-backend:${IMAGE_TAG:-latest}
+    container_name: getcardiq_backend
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      PLAID_CLIENT_ID: ${PLAID_CLIENT_ID}
+      PLAID_SECRET: ${PLAID_SECRET}
+      PLAID_ENV: ${PLAID_ENV}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend-js:
+    image: ${IMAGE_REGISTRY_USERNAME:-bhargavram0211}/getcardiq-frontend:${IMAGE_TAG:-latest}
+    container_name: getcardiq_frontend_js
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

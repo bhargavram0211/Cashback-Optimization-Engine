@@ -1,5 +1,5 @@
 # Software Requirements Specification (SRS)
-## Project: Cashback Optimization Engine (MVP)
+## Project: GetCardIQ (MVP)
 
 ### 1. Project Overview
 A financial analysis tool designed to ingest credit card transactions via Plaid and identify "Opportunity Costs" where a different card in the user’s portfolio would have yielded higher rewards. The goal is educational: training the user to make better card-choice decisions in the future.
@@ -20,7 +20,7 @@ Positive Charges: Only transactions where the amount > 0 are candidates for the 
 ### 3. Technical Architecture
 #### 3.1 Tech Stack
 - Backend: Python 3.12+ (FastAPI).
-- Frontend: Streamlit (v1.30+) for the analytics dashboard.
+- Frontend: React 18 + TypeScript + Vite for the analytics dashboard.
 - Database: PostgreSQL 16.
 - ORM: SQLModel (integrates SQLAlchemy and Pydantic).
 - Infrastructure: Docker & Docker Compose.
@@ -56,7 +56,7 @@ The engine shall normalize all spending into the following buckets: DINING, GROC
 
 ### 5. Functional Requirements (FR)
 #### 5.1 Incremental Data Sync
-- FR 1.1 (Manual Refresh): The system shall provide a "Refresh" button in the Streamlit UI to trigger a manual sync. Automated webhooks are out of scope for the MVP to prioritize local development simplicity.
+- FR 1.1 (Manual Refresh): The system shall provide a "Refresh" button in the React UI to trigger a manual sync. Automated webhooks are out of scope for the MVP to prioritize local development simplicity.
 - FR 1.2 (Cursor-Based Sync): Every sync request must retrieve the last_cursor from the plaid_items table. Upon a successful /transactions/sync call, the system must update that record with the new cursor provided by Plaid.
 - FR 1.3 (Idempotent Upsert): The system shall use the plaid_transaction_id as a unique natural key. New records must be inserted, and existing records must be updated (UPSERT) to handle data corrections without creating duplicates.
 - FR 1.4 (Three-Stage Filter): During ingestion, the system must apply the following logic:

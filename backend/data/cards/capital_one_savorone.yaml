@@ -1,0 +1,20 @@
+# Capital One SavorOne Card Definition
+# Last Updated: 2026-01-16
+
+provider: Capital One
+card_name: SavorOne
+base_reward_rate: 1.0
+is_available_in_market: true
+image_url: https://ecm.capitalone.com/WCM/card/products/savorone-card-art.png
+benefits_url: https://www.capitalone.com/credit-cards/savorone-dining-rewards/
+
+# Reward structure: 4% dining & entertainment, 3% grocery
+rewards:
+  - bucket: DINING
+    multiplier: 4.0
+  - bucket: STREAMING
+    multiplier: 4.0
+  - bucket: GROCERY
+    multiplier: 3.0
+  - bucket: GENERAL
+    multiplier: 1.0
